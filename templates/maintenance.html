@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据维护 - taoli</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 1000px; margin: 2rem auto; padding: 0 1rem; color: #333;
+      background: #fafafa;
+    }
+    h1 { border-bottom: 2px solid #4a90d9; padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0;
+            background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f5f5f5; font-weight: 600; font-size: 0.85rem;
+         text-transform: uppercase; letter-spacing: 0.03em; color: #555; }
+    tr:last-child td { border-bottom: none; }
+    .btn {
+      padding: 0.35rem 0.9rem; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 0.85rem; transition: background 0.15s;
+    }
+    .btn-update { background: #4a90d9; color: white; }
+    .btn-update:hover:not(:disabled) { background: #357abd; }
+    .btn-update:disabled { background: #bbb; cursor: not-allowed; }
+    .status-running { color: #e67e22; font-weight: 600; }
+    .status-done { color: #27ae60; font-weight: 600; }
+    .status-error { color: #e74c3c; font-weight: 600; }
+    .result-box {
+      margin: 1rem 0; padding: 1rem; border-radius: 4px;
+      background: #fff; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .result-success { border-left: 4px solid #27ae60; }
+    .result-error { border-left: 4px solid #e74c3c; }
+    .refresh-hint { color: #888; font-size: 0.85rem; margin-top: 1rem; }
+    .count { font-variant-numeric: tabular-nums; }
+    .pair-label { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>数据维护</h1>
+  <p class="subtitle">查看数据状态并执行增量更新。点击"更新"按钮后，页面会自动轮询获取进度。</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>数据源</th>
+        <th>交易对</th>
+        <th>起始日期</th>
+        <th>结束日期</th>
+        <th>记录数</th>
+        <th>状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="data-table">
+      {% for entry in entries %}
+      <tr data-pair="{{ entry.pair }}" data-type="{{ entry.type }}">
+        <td>{{ entry.source }}</td>
+        <td class="pair-label">{{ entry.pair }}</td>
+        <td>{{ entry.min_date[:10] if entry.min_date else 'N/A' }}</td>
+        <td>{{ entry.max_date[:10] if entry.max_date else 'N/A' }}</td>
+        <td class="count">{{ entry.count }}</td>
+        <td id="status-{{ entry.key }}">
+          <span class="status-done">就绪</span>
+        </td>
+        <td>
+          <button class="btn btn-update"
+                  onclick="startUpdate('{{ entry.key }}', '{{ entry.type }}', '{{ entry.pair }}')"
+                  id="btn-{{ entry.key }}">
+            更新
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div id="result-area"></div>
+  <p class="refresh-hint">页面每 2 秒自动刷新状态 | 完成后 3 秒自动刷新数据</p>
+
+  <script>
+    let pollIntervals = {};
+
+    function startUpdate(key, type, pair) {
+      var btn = document.getElementById('btn-' + key);
+      btn.disabled = true;
+      btn.textContent = '获取中...';
+      var statusEl = document.getElementById('status-' + key);
+      statusEl.innerHTML = '<span class="status-running">获取中...</span>';
+
+      fetch('/api/fetch/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({type: type, pair: pair})
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        var jobId = data.job_id;
+        pollIntervals[key] = setInterval(function() {
+          fetch('/api/fetch/status/' + jobId)
+            .then(function(r) { return r.json(); }).then(function(job) {
+              if (!job) return;
+              statusEl.innerHTML = '<span class="status-running">' + (job.message || '获取中...') + '</span>';
+              if (job.status === 'done') {
+                clearInterval(pollIntervals[key]);
+                delete pollIntervals[key];
+                btn.textContent = '更新';
+                btn.disabled = false;
+                statusEl.innerHTML = '<span class="status-done">完成 (' + job.new_records + ' 条)</span>';
+                showResult(key, job, false);
+                setTimeout(function() { location.reload(); }, 3000);
+              } else if (job.status === 'error') {
+                clearInterval(pollIntervals[key]);
+                delete pollIntervals[key];
+                btn.textContent = '重试';
+                btn.disabled = false;
+                statusEl.innerHTML = '<span class="status-error">失败</span>';
+                showResult(key, job, true);
+              }
+            });
+        }, 1500);
+      });
+    }
+
+    function showResult(key, job, isError) {
+      var area = document.getElementById('result-area');
+      var cls = isError ? 'result-error' : 'result-success';
+      var pairName = job.pair || 'BFUSD';
+      var html = '<div class="result-box ' + cls + '">';
+      html += '<strong>' + pairName + ':</strong> ' + job.message;
+      if (job.new_records) html += ' (新增 ' + job.new_records + ' 条)';
+      if (job.error) html += '<br><em>错误: ' + job.error + '</em>';
+      html += '</div>';
+      area.innerHTML = html;
+    }
+  </script>
+</body>
+</html>

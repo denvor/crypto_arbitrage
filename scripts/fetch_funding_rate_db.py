@@ -1,33 +1,19 @@
 #!/usr/bin/env python3
 """从币安 API 获取资金费率并写入 SQLite 数据库"""
 
-import configparser
 import sqlite3
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import os
-import sys
 import requests
 
-ROOT = Path(__file__).resolve().parent.parent
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from utils import get_proxies, ROOT, CONFIG_PATH
+
 DB_PATH = ROOT / "db" / "funding_rate.db"
-CONFIG_PATH = ROOT / "config.ini"
 proxies = None
-
-
-def get_proxies():
-    """获取代理配置：环境变量 > config.ini"""
-    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
-    if not proxy:
-        try:
-            cfg = configparser.ConfigParser()
-            cfg.read(str(CONFIG_PATH))
-            proxy = cfg.get("proxy", "url", fallback="").strip()
-        except Exception:
-            pass
-    return {"http": proxy, "https": proxy} if proxy else None
 
 
 def create_table(conn):
@@ -157,19 +143,24 @@ def fetch_range(symbol, start_ts, end_ts, conn, db_pair=""):
 
 
 def main():
+    import configparser
     config = configparser.ConfigParser()
     config.optionxform = str  # 保留 key 原始大小写
     config.read(str(CONFIG_PATH))
 
     global proxies
     proxies = get_proxies()
+    if proxies:
+        print(f"代理: {proxies['http']}")
+        sys.stdout.flush()
 
     conn = sqlite3.connect(str(DB_PATH))
     create_table(conn)
 
     # 获取昨天的日期
-    yesterday = (datetime.now() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    end_ts = int(yesterday.timestamp() * 1000)
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # fundingTime 有毫秒偏移，加 10 秒缓冲
+    end_ts = int(today.timestamp() * 1000) - 1 + 10000
 
     # 找出每个交易对最新的 timestamp
     pairs = {}

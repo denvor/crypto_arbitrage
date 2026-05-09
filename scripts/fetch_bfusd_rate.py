@@ -11,10 +11,8 @@
 获取策略：用 endTime 逐批获取，每次用最后一条的 time-1 作为下一批的 endTime
 """
 
-import configparser
 import hashlib
 import hmac
-import os
 import sqlite3
 import sys
 import time
@@ -25,23 +23,13 @@ import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-ROOT = Path(__file__).resolve().parent.parent
+import configparser
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from utils import get_proxies, ROOT, CONFIG_PATH
+
 DB_PATH = ROOT / "db" / "bfusd.db"
-CONFIG_PATH = ROOT / "config.ini"
 proxies = None
-
-
-def get_proxies():
-    """获取代理配置：环境变量 > config.ini"""
-    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
-    if not proxy:
-        try:
-            cfg = configparser.ConfigParser()
-            cfg.read(str(CONFIG_PATH))
-            proxy = cfg.get("proxy", "url", fallback="").strip()
-        except Exception:
-            pass
-    return {"http": proxy, "https": proxy} if proxy else None
 
 
 def make_signed_url(base_url, params, secret):
@@ -155,6 +143,9 @@ def main():
 
     global proxies
     proxies = get_proxies()
+    if proxies:
+        print(f"代理: {proxies['http']}")
+        sys.stdout.flush()
 
     api_key = config.get("keys", "api_key", fallback="").strip()
     api_secret = config.get("keys", "api_secret", fallback="").strip()

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>回测 - taoli</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 1100px; margin: 2rem auto; padding: 0 1rem; color: #333;
+      background: #fafafa;
+    }
+    h1 { border-bottom: 2px solid #4a90d9; padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
+    .nav { color: #888; font-size: 0.85rem; margin-bottom: 1.5rem; }
+    .nav a { color: #4a90d9; text-decoration: none; }
+
+    /* Form */
+    .form-card {
+      background: #fff; border-radius: 6px; padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem;
+    }
+    .form-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+    .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+    .form-group label { font-size: 0.8rem; color: #666; font-weight: 600; }
+    .form-group input[type="date"],
+    .form-group input[type="number"],
+    .form-group select {
+      padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px;
+      font-size: 0.9rem; min-width: 140px;
+    }
+    .form-group input[type="checkbox"] { margin-top: 0.3rem; }
+    .pair-checks { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+    .pair-checks label {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-size: 0.9rem; font-weight: normal; cursor: pointer;
+    }
+    .btn-run {
+      padding: 0.6rem 2rem; background: #4a90d9; color: #fff;
+      border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-run:hover:not(:disabled) { background: #357abd; }
+    .btn-run:disabled { background: #bbb; cursor: not-allowed; }
+
+    /* Progress */
+    .progress-bar {
+      display: none; margin: 1.5rem 0;
+    }
+    .progress-bar.active { display: block; }
+    .progress-track {
+      height: 8px; background: #eee; border-radius: 4px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: #4a90d9; border-radius: 4px;
+      animation: indeterminate 1.2s ease-in-out infinite;
+      width: 60%;
+    }
+    @keyframes indeterminate {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(250%); }
+    }
+    .progress-text { font-size: 0.85rem; color: #666; margin-top: 0.5rem; }
+
+    /* Summary table */
+    .summary-card {
+      background: #fff; border-radius: 6px; padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem;
+      display: none;
+    }
+    .summary-card.active { display: block; }
+    .summary-card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #333; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.6rem 0.5rem; text-align: right; border-bottom: 1px solid #eee; }
+    th { background: #f8f8f8; font-size: 0.8rem; color: #555; font-weight: 600; }
+    th:first-child, td:first-child { text-align: left; }
+    td.positive { color: #27ae60; }
+    td.negative { color: #e74c3c; }
+
+    /* Detail */
+    .detail-card {
+      background: #fff; border-radius: 6px; padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem;
+      display: none;
+    }
+    .detail-card.active { display: block; }
+    .detail-card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    .detail-toggle {
+      background: none; border: 1px solid #ddd; border-radius: 4px;
+      padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.85rem;
+      color: #4a90d9; margin-bottom: 1rem;
+    }
+    .detail-toggle:hover { background: #f5f5f5; }
+    .detail-table { display: none; }
+    .detail-table.active { display: block; }
+    .detail-table th { font-size: 0.75rem; padding: 0.4rem 0.3rem; }
+    .detail-table td { font-size: 0.8rem; padding: 0.35rem 0.3rem; font-variant-numeric: tabular-nums; }
+    .pair-section { margin-bottom: 2rem; }
+    .pair-section h3 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: #555; }
+    .pair-stats {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.8rem; margin: 0.5rem 0 1rem; padding: 0.8rem;
+      background: #f9f9f9; border-radius: 4px; font-size: 0.85rem;
+    }
+    .pair-stats dt { color: #888; }
+    .pair-stats dd { font-weight: 600; margin-bottom: 0.3rem; }
+
+    .error-msg {
+      padding: 1rem; background: #fef2f2; border-left: 4px solid #e74c3c;
+      border-radius: 4px; color: #c0392b; margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>回测</h1>
+  <p class="nav"><a href="/">taoli</a> | <a href="/maintenance">数据维护</a> | 回测</p>
+
+  <!-- 参数表单 -->
+  <div class="form-card">
+    <form id="backtest-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>交易对</label>
+          <div class="pair-checks" id="pair-checks">
+            {% for key, name in pairs.items() %}
+            <label>
+              <input type="checkbox" name="pair" value="{{ key }}" checked> {{ name }}
+              <span style="color:#999;font-size:0.75rem">({{ pair_ranges[name].min }}~{{ pair_ranges[name].max }})</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>开始日期</label>
+          <input type="date" id="start" name="start" required>
+        </div>
+        <div class="form-group">
+          <label>结束日期</label>
+          <input type="date" id="end" name="end" required>
+        </div>
+        <div class="form-group">
+          <label>总资金 (USDT)</label>
+          <input type="number" id="capital" name="capital" value="10000" min="100" step="100">
+        </div>
+        <div class="form-group">
+          <label>杠杆倍数</label>
+          <input type="number" id="leverage" name="leverage" value="1" min="1" max="20" step="0.5">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>合约手续费率</label>
+          <input type="number" id="futures_fee" name="futures_fee" value="0.0004" step="0.0001" min="0">
+        </div>
+        <div class="form-group">
+          <label>现货手续费率</label>
+          <input type="number" id="spot_fee" name="spot_fee" value="0.0004" step="0.0001" min="0">
+        </div>
+        <div class="form-group">
+          <label>滑点率</label>
+          <input type="number" id="slippage" name="slippage" value="0.0001" step="0.00001" min="0">
+        </div>
+        <div class="form-group" style="justify-content:flex-end">
+          <label>
+            <input type="checkbox" id="with_bfusd" name="with_bfusd"> 启用 BFUSD 年化收益
+          </label>
+        </div>
+      </div>
+      <div class="form-row">
+        <button type="submit" class="btn-run" id="btn-run">开始回测</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 进度条 -->
+  <div class="progress-bar" id="progress">
+    <div class="progress-track">
+      <div class="progress-fill"></div>
+    </div>
+    <div class="progress-text">正在计算回测，请稍候...</div>
+  </div>
+
+  <!-- 错误信息 -->
+  <div id="error-area"></div>
+
+  <!-- 汇总表格 -->
+  <div class="summary-card" id="summary-card">
+    <h2>汇总对比</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>交易对</th>
+          <th>净收益 (USDT)</th>
+          <th>收益率</th>
+          <th>年化</th>
+          <th>次数</th>
+          <th>正/负</th>
+        </tr>
+      </thead>
+      <tbody id="summary-body"></tbody>
+    </table>
+  </div>
+
+  <!-- 逐笔明细 -->
+  <div class="detail-card" id="detail-card">
+    <h2>逐笔明细</h2>
+    <div id="detail-content"></div>
+  </div>
+
+  <script>
+    // 设置默认日期
+    (function() {
+      var today = new Date();
+      var oneYearAgo = new Date(today);
+      oneYearAgo.setFullYear(today.getFullYear() - 1);
+      document.getElementById('start').value = formatDate(oneYearAgo);
+      document.getElementById('end').value = formatDate(today);
+    })();
+
+    function formatDate(d) {
+      return d.toISOString().split('T')[0];
+    }
+
+    // 全选/取消
+    document.querySelectorAll('#pair-checks input[type="checkbox"]').forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var all = document.querySelectorAll('#pair-checks input[type="checkbox"]');
+        var checked = document.querySelectorAll('#pair-checks input[type="checkbox"]:checked');
+        if (checked.length === all.length) {
+          // 全部选中时不再操作
+        }
+      });
+    });
+
+    document.getElementById('backtest-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      var pairs = [];
+      document.querySelectorAll('#pair-checks input[name="pair"]:checked').forEach(function(cb) {
+        pairs.push(cb.value);
+      });
+
+      var start = document.getElementById('start').value;
+      var end = document.getElementById('end').value;
+      if (!start || !end) { alert('请选择回测日期范围'); return; }
+      if (pairs.length === 0) { alert('请至少选择一个交易对'); return; }
+
+      var btn = document.getElementById('btn-run');
+      btn.disabled = true;
+      btn.textContent = '计算中...';
+
+      document.getElementById('progress').classList.add('active');
+      document.getElementById('summary-card').classList.remove('active');
+      document.getElementById('detail-card').classList.remove('active');
+      document.getElementById('error-area').innerHTML = '';
+
+      var payload = {
+        pairs: pairs,
+        start: start,
+        end: end,
+        capital: parseFloat(document.getElementById('capital').value) || 10000,
+        leverage: parseFloat(document.getElementById('leverage').value) || 1,
+        futures_fee: parseFloat(document.getElementById('futures_fee').value) || 0.0004,
+        spot_fee: parseFloat(document.getElementById('spot_fee').value) || 0.0004,
+        slippage: parseFloat(document.getElementById('slippage').value) || 0.0001,
+        with_bfusd: document.getElementById('with_bfusd').checked,
+      };
+
+      fetch('/api/backtest/run', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        document.getElementById('progress').classList.remove('active');
+        btn.disabled = false;
+        btn.textContent = '开始回测';
+
+        if (data.error) {
+          document.getElementById('error-area').innerHTML = '<div class="error-msg">' + data.error + '</div>';
+          return;
+        }
+
+        renderResults(data.results);
+      }).catch(function(err) {
+        document.getElementById('progress').classList.remove('active');
+        btn.disabled = false;
+        btn.textContent = '开始回测';
+        document.getElementById('error-area').innerHTML = '<div class="error-msg">请求失败: ' + err.message + '</div>';
+      });
+    });
+
+    function fmt(n) {
+      return n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function fmtPct(n) {
+      return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+    }
+
+    function renderResults(results) {
+      var keys = Object.keys(results);
+      if (keys.length === 0) {
+        document.getElementById('error-area').innerHTML = '<div class="error-msg">没有可回测的数据</div>';
+        return;
+      }
+
+      // 汇总表格
+      var tbody = document.getElementById('summary-body');
+      tbody.innerHTML = '';
+      keys.forEach(function(k) {
+        var r = results[k];
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td><strong>' + r._name + '</strong></td>' +
+          '<td class="' + (r.net_profit >= 0 ? 'positive' : 'negative') + '">' + fmtPct(r.net_pct) + '</td>' +
+          '<td class="' + (r.net_pct >= 0 ? 'positive' : 'negative') + '">' + fmtPct(r.net_pct) + '</td>' +
+          '<td class="' + (r.annualized >= 0 ? 'positive' : 'negative') + '">' + fmtPct(r.annualized) + '</td>' +
+          '<td>' + r.total_count + '</td>' +
+          '<td>' + r.positive_count + '/' + r.negative_count + '</td>';
+        tbody.appendChild(tr);
+      });
+      document.getElementById('summary-card').classList.add('active');
+
+      // 逐笔明细
+      var detailContent = document.getElementById('detail-content');
+      detailContent.innerHTML = '';
+      keys.forEach(function(k) {
+        var r = results[k];
+        var section = document.createElement('div');
+        section.className = 'pair-section';
+
+        // 交易对统计
+        var statsHtml = '<h3>' + r._name + '</h3>';
+        statsHtml += '<dl class="pair-stats">';
+        statsHtml += '<dt>持有天数</dt><dd>' + r.days.toFixed(1) + ' 天</dd>';
+        statsHtml += '<dt>现货投入</dt><dd>' + fmt(r.spot_cost) + ' USDT</dd>';
+        statsHtml += '<dt>合约保证金</dt><dd>' + fmt(r.margin) + ' USDT</dd>';
+        statsHtml += '<dt>合约仓位</dt><dd>' + fmt(r.initial_position) + ' USDT (' + r.leverage + 'x)</dd>';
+        statsHtml += '<dt>资金费率收益</dt><dd class="' + (r.funding_profit >= 0 ? 'positive' : 'negative') + '">' + fmt(r.funding_profit) + ' USDT (' + fmtPct(r.funding_pct) + ')</dd>';
+        if (r.bfusd_profit !== 0) {
+          statsHtml += '<dt>BFUSD 收益</dt><dd class="' + (r.bfusd_profit >= 0 ? 'positive' : 'negative') + '">' + fmt(r.bfusd_profit) + ' USDT</dd>';
+        }
+        statsHtml += '<dt>手续费</dt><dd class="negative">' + fmt(r.fee_cost) + ' USDT</dd>';
+        statsHtml += '<dt>滑点</dt><dd class="negative">' + fmt(r.slippage_cost) + ' USDT</dd>';
+        statsHtml += '<dt>净收益</dt><dd class="' + (r.net_profit >= 0 ? 'positive' : 'negative') + '">' + fmt(r.net_profit) + ' USDT (' + fmtPct(r.net_pct) + ')</dd>';
+        statsHtml += '<dt>最大单笔收益</dt><dd class="positive">' + fmt(r.max_profit) + ' USDT</dd>';
+        statsHtml += '<dt>最大单笔亏损</dt><dd class="negative">' + fmt(r.max_loss) + ' USDT</dd>';
+        statsHtml += '</dl>';
+
+        // 明细表格
+        var tableId = 'detail-' + k;
+        statsHtml += '<button class="detail-toggle" onclick="toggleDetail(\'' + tableId + '\', this)">展开明细</button>';
+        statsHtml += '<table class="detail-table" id="' + tableId + '">';
+        statsHtml += '<thead><tr><th>时间</th><th>费率</th><th>价格</th><th>费率收益</th><th>手续费</th><th>滑点</th><th>净收益</th><th>累计</th></tr></thead>';
+        statsHtml += '<tbody>';
+        r.detail.forEach(function(d) {
+          statsHtml += '<tr>';
+          statsHtml += '<td>' + d.time + '</td>';
+          statsHtml += '<td>' + d.rate.toFixed(6) + '</td>';
+          statsHtml += '<td>' + d.price.toFixed(2) + '</td>';
+          statsHtml += '<td class="' + (d.funding_pnl >= 0 ? 'positive' : 'negative') + '">' + fmt(d.funding_pnl) + '</td>';
+          statsHtml += '<td class="negative">' + fmt(d.fee_pnl) + '</td>';
+          statsHtml += '<td class="negative">' + fmt(d.slippage_pnl) + '</td>';
+          statsHtml += '<td class="' + (d.net_pnl >= 0 ? 'positive' : 'negative') + '">' + fmt(d.net_pnl) + '</td>';
+          statsHtml += '<td class="' + (d.cumulative >= 0 ? 'positive' : 'negative') + '">' + fmt(d.cumulative) + '</td>';
+          statsHtml += '</tr>';
+        });
+        statsHtml += '</tbody></table>';
+
+        section.innerHTML = statsHtml;
+        detailContent.appendChild(section);
+      });
+      document.getElementById('detail-card').classList.add('active');
+    }
+
+    function toggleDetail(id, btn) {
+      var table = document.getElementById(id);
+      if (table.classList.contains('active')) {
+        table.classList.remove('active');
+        btn.textContent = '展开明细';
+      } else {
+        table.classList.add('active');
+        btn.textContent = '收起明细';
+      }
+    }
+  </script>
+</body>
+</html>
