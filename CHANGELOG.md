@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## v2.3.0 - Flask WebUI（2026-05-09）
+
+### 新增功能
+
+1. **Flask WebUI** — 通过 `uwsgi --ini uwsgi/uwsgi.ini` 启动，提供两个页面：
+   - `/maintenance` — 数据维护页面：展示 4 个交易对 + BFUSD 的数据范围（起始/结束日期、记录数），支持增量更新，后台线程执行，前端轮询进度
+   - `/backtest` — 回测页面：交易对多选、日期范围、资金/杠杆/手续费/滑点参数配置、BFUSD 开关，返回汇总对比表和逐笔明细
+
+2. **资金费率更新 end_ts 修复** — 原代码 `end_ts = yesterday 00:00` 只覆盖凌晨一瞬间，漏掉 08:00 和 16:00 结算点。修复为 `today 00:00 - 1ms + 10s 缓冲`，覆盖昨天全天。`fundingTime` 有毫秒偏移（如 `timestamp + 3ms`），加 10s 缓冲避免被过滤。
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `app.py` | Flask WebUI 入口，包含数据维护和回测路由 |
+| `scripts/utils.py` | 共享工具模块（代理配置、config 加载、DB 统计、文件存储的任务管理） |
+| `templates/maintenance.html` | 数据维护页面模板 |
+| `templates/backtest.html` | 回测页面模板 |
+| `requirements.txt` | Python 依赖（requests, flask） |
+
+### 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `scripts/fetch_funding_rate_db.py` | 复用 `utils.get_proxies()`；修复 `end_ts` 覆盖全天 |
+| `scripts/fetch_bfusd_rate.py` | 复用 `utils.get_proxies()` |
+| `CLAUDE.md` | 更新文档 |
+| `README.md` | 更新文档 |
+
+### 技术细节
+
+- **多进程任务管理**：uWSGI 多进程模式下内存字典无法共享，改用 `uwsgi/jobs/` 目录存储 job 状态（JSON 文件），支持跨进程查询进度
+- **代理配置**：`get_proxies()` 统一从环境变量 > config.ini 读取，提取到共享模块
+- **任务进度**：后台线程更新 JSON 文件，前端每 1.5 秒轮询 `/api/fetch/status/<job_id>`
+
+---
+
 ## v2.2.0 - 增量获取优化与代理统一（2026-05-01）
 
 ### Bug 修复

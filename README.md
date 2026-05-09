@@ -4,6 +4,22 @@
 
 ## 快速开始
 
+### WebUI（推荐）
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动 uWSGI
+uwsgi --ini uwsgi/uwsgi.ini
+
+# 访问
+# http://<IP>:9090/maintenance   数据维护页面
+# http://<IP>:9090/backtest      回测页面
+```
+
+### 命令行
+
 ```bash
 python scripts/backtest.py --pair btcusdt --start 2024-01-01 --end 2024-12-31
 ```
@@ -129,10 +145,18 @@ python scripts/backtest.py --pair btcusdt --start 2024-06-01 --end 2024-06-07 --
 ```
 taoli/
   config.ini              # 全局配置（交易对、代理、回测参数）
+  app.py                  # Flask WebUI 入口
+  requirements.txt        # Python 依赖（requests, flask）
+  uwsgi/                  # uWSGI 配置
+    uwsgi.ini
   scripts/                # Python 脚本
+    utils.py              # 共享工具（代理、配置、DB 统计、任务管理）
     backtest.py           # 回测程序
-    fetch_funding_rate_db.py  # 数据获取程序（数据库版）
+    fetch_funding_rate_db.py  # 数据获取程序（资金费率）
     fetch_bfusd_rate.py   # BFUSD 利率获取
+  templates/              # WebUI 页面模板
+    maintenance.html      # 数据维护页面
+    backtest.html         # 回测页面
   db/                     # SQLite 数据库
     funding_rate.db
     bfusd.db
