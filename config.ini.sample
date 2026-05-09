@@ -1,0 +1,20 @@
+[keys]
+api_key = 
+api_secret = 
+
+[proxy]
+url = http://127.0.0.1:20171
+
+[pairs]
+BTCUSDT = 2019-09-10
+BTCUSDC = 2024-01-03
+ETHUSDT = 2019-11-27
+ETHUSDC = 2024-01-03
+
+[bfusd]
+start_date = 2024-11-20
+
+[backtest]
+futures_fee = 0.0004
+spot_fee = 0.0004
+slippage = 0.0001

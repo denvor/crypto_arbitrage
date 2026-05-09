@@ -1,0 +1,7 @@
+venv/*
+uwsgi/*
+__pycache__/*
+logs/*
+.claude/
+CLAUDE.md
+config.ini
