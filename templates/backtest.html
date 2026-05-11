@@ -221,9 +221,9 @@
   <nav class="nav">
     <div class="nav-brand">Arbitrage</div>
     <div class="nav-links">
-      <a href="/">首页</a>
-      <a href="/maintenance">数据维护</a>
-      <a href="/backtest" class="active">回测</a>
+      <a href="{{ url_for('index') }}">首页</a>
+      <a href="{{ url_for('maintenance') }}">数据维护</a>
+      <a href="{{ url_for('backtest') }}" class="active">回测</a>
     </div>
   </nav>
 
@@ -331,6 +331,8 @@
   </div>
 
   <script>
+    const _bp = window.location.pathname.replace(/\/(backtest|maintenance).*$/, '');
+
     document.getElementById('backtest-form').addEventListener('submit', function(e) {
       e.preventDefault();
 
@@ -365,7 +367,7 @@
         with_bfusd: document.getElementById('with_bfusd').checked,
       };
 
-      fetch('/api/backtest/run', {
+      fetch(_bp + '/api/backtest/run', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload),

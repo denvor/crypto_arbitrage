@@ -8,6 +8,7 @@
 import hashlib
 import hmac
 import json
+import os
 import sqlite3
 import sys
 import threading
@@ -17,7 +18,7 @@ from pathlib import Path
 
 import requests
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, url_for
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 from utils import (
@@ -30,7 +31,8 @@ from utils import (
 # 导入回测核心函数
 from backtest import run_backtest, load_log_data, load_bfusd_rates
 
-app = Flask(__name__)
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, static_folder=PROJECT_DIR, static_url_path="/static")
 
 
 # ---- 后台更新函数 ----
