@@ -1,6 +1,8 @@
 # 资金费率套利回测程序
 
-基于币安合约历史资金费率数据，回测做空合约 + 做多现货的套利策略。
+**crypto Arbitrage** 是基于币安合约历史资金费率数据的回测工具，回测做空合约 + 做多现货的 Delta 中性套利策略。
+
+[![GitHub](https://img.shields.io/badge/GitHub-crypto_arbitrage-181717?logo=github)](https://github.com/denvor/crypto_arbitrage)
 
 ## 快速开始
 

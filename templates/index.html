@@ -109,6 +109,10 @@
       text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.8rem;
       border-top: 1px solid var(--border); margin-top: 3rem;
     }
+    .footer a {
+      color: var(--accent-hover); text-decoration: none; transition: color 0.15s;
+    }
+    .footer a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -165,7 +169,8 @@
   </div>
 
   <div class="footer">
-    crypto Arbitrage &middot; 币安资金费率套利回测工具 &middot; Python + SQLite
+    crypto Arbitrage &middot; 币安资金费率套利回测工具 &middot; Python + SQLite &middot;
+    <a href="https://github.com/denvor/crypto_arbitrage" target="_blank" rel="noopener">GitHub</a>
   </div>
 </body>
 </html>
