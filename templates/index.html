@@ -119,9 +119,9 @@
   <nav class="nav">
     <div class="nav-brand">Arbitrage</div>
     <div class="nav-links">
-      <a href="/" class="active">首页</a>
-      <a href="/maintenance">数据维护</a>
-      <a href="/backtest">回测</a>
+      <a href="{{ url_for('index') }}" class="active">首页</a>
+      <a href="{{ url_for('maintenance') }}">数据维护</a>
+      <a href="{{ url_for('backtest') }}">回测</a>
     </div>
   </nav>
 
@@ -146,7 +146,7 @@
   </div>
 
   <div class="cards">
-    <a class="card" href="/maintenance">
+    <a class="card" href="{{ url_for('maintenance') }}">
       <div class="card-icon blue">&#x1F4C5;</div>
       <h2>数据维护</h2>
       <p>查看各交易对数据范围，执行增量更新。支持资金费率和 BFUSD 利率数据管理。</p>
@@ -156,7 +156,7 @@
         <span class="card-tag">BFUSD</span>
       </div>
     </a>
-    <a class="card" href="/backtest">
+    <a class="card" href="{{ url_for('backtest') }}">
       <div class="card-icon green">&#x1F4CA;</div>
       <h2>策略回测</h2>
       <p>配置杠杆、手续费、滑点等参数，回测多交易对套利策略收益，查看逐笔明细。</p>

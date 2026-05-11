@@ -166,9 +166,9 @@
   <nav class="nav">
     <div class="nav-brand">Arbitrage</div>
     <div class="nav-links">
-      <a href="/">首页</a>
-      <a href="/maintenance" class="active">数据维护</a>
-      <a href="/backtest">回测</a>
+      <a href="{{ url_for('index') }}">首页</a>
+      <a href="{{ url_for('maintenance') }}" class="active">数据维护</a>
+      <a href="{{ url_for('backtest') }}">回测</a>
     </div>
   </nav>
 
@@ -229,6 +229,7 @@
 
   <script>
     let pollIntervals = {};
+    const _bp = window.location.pathname.replace(/\/(maintenance|backtest).*$/, '');
 
     function startUpdate(key, type, pair) {
       var btn = document.getElementById('btn-' + key);
@@ -237,14 +238,14 @@
       var statusEl = document.getElementById('status-' + key);
       statusEl.innerHTML = '<span class="status-badge status-running"><span class="status-dot"></span>获取中...</span>';
 
-      fetch('/api/fetch/start', {
+      fetch(_bp + '/api/fetch/start', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({type: type, pair: pair})
       }).then(function(r) { return r.json(); }).then(function(data) {
         var jobId = data.job_id;
         pollIntervals[key] = setInterval(function() {
-          fetch('/api/fetch/status/' + jobId)
+          fetch(_bp + '/api/fetch/status/' + jobId)
             .then(function(r) { return r.json(); }).then(function(job) {
               if (!job) return;
               statusEl.innerHTML = '<span class="status-badge status-running"><span class="status-dot"></span>' + (job.message || '获取中...') + '</span>';
