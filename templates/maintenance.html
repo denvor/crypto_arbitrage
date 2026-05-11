@@ -3,84 +3,229 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>数据维护 - taoli</title>
+  <title>数据维护 - crypto Arbitrage</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-hover: #222633;
+      --border: #2a2e3a;
+      --text: #e4e4e7;
+      --text-muted: #8b8fa3;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --green: #22c55e;
+      --green-bg: rgba(34,197,94,0.1);
+      --orange: #f59e0b;
+      --orange-bg: rgba(245,158,11,0.1);
+      --red: #ef4444;
+      --red-bg: rgba(239,68,68,0.1);
+      --radius: 12px;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      max-width: 1000px; margin: 2rem auto; padding: 0 1rem; color: #333;
-      background: #fafafa;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
     }
-    h1 { border-bottom: 2px solid #4a90d9; padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
-    .subtitle { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; }
-    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0;
-            background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #f5f5f5; font-weight: 600; font-size: 0.85rem;
-         text-transform: uppercase; letter-spacing: 0.03em; color: #555; }
+
+    /* Nav */
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2rem; border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .nav-brand {
+      font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .nav-links { display: flex; gap: 0.5rem; }
+    .nav-links a {
+      color: var(--text-muted); text-decoration: none; padding: 0.5rem 1rem;
+      border-radius: 8px; font-size: 0.9rem; transition: all 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); background: var(--surface-hover); }
+    .nav-links a.active { color: var(--accent); background: rgba(99,102,241,0.1); }
+
+    /* Page header */
+    .page-header {
+      max-width: 1000px; margin: 2rem auto 0; padding: 0 1rem;
+    }
+    .page-header h1 {
+      font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.4rem;
+    }
+    .page-header p { color: var(--text-muted); font-size: 0.9rem; }
+
+    /* Table card */
+    .table-card {
+      max-width: 1000px; margin: 1.5rem auto; padding: 0 1rem;
+    }
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      padding: 0.85rem 1rem; text-align: left; font-size: 0.78rem;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--text-muted); background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.85rem 1rem; font-size: 0.9rem;
+      border-bottom: 1px solid var(--border); vertical-align: middle;
+    }
     tr:last-child td { border-bottom: none; }
+
+    .pair-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-weight: 600; font-size: 0.85rem;
+    }
+    .pair-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .pair-dot.btc { background: #f7931a; }
+    .pair-dot.eth { background: #627eea; }
+    .pair-dot.bfusd { background: #22c55e; }
+
+    .date-cell { color: var(--text-muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+    .count-cell {
+      font-weight: 700; font-variant-numeric: tabular-nums;
+      background: rgba(99,102,241,0.08); padding: 0.2rem 0.6rem;
+      border-radius: 6px; display: inline-block; font-size: 0.85rem;
+    }
+
+    /* Status */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      font-size: 0.82rem; font-weight: 600; padding: 0.25rem 0.7rem;
+      border-radius: 8px;
+    }
+    .status-ready { background: var(--green-bg); color: var(--green); }
+    .status-running { background: var(--orange-bg); color: var(--orange); }
+    .status-done { background: var(--green-bg); color: var(--green); }
+    .status-error { background: var(--red-bg); color: var(--red); }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+    }
+    .status-ready .status-dot { background: var(--green); }
+    .status-running .status-dot { background: var(--orange); animation: pulse 1s infinite; }
+    .status-done .status-dot { background: var(--green); }
+    .status-error .status-dot { background: var(--red); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* Buttons */
     .btn {
-      padding: 0.35rem 0.9rem; border: none; border-radius: 4px;
-      cursor: pointer; font-size: 0.85rem; transition: background 0.15s;
+      padding: 0.4rem 1rem; border: none; border-radius: 8px;
+      cursor: pointer; font-size: 0.82rem; font-weight: 600;
+      transition: all 0.15s;
     }
-    .btn-update { background: #4a90d9; color: white; }
-    .btn-update:hover:not(:disabled) { background: #357abd; }
-    .btn-update:disabled { background: #bbb; cursor: not-allowed; }
-    .status-running { color: #e67e22; font-weight: 600; }
-    .status-done { color: #27ae60; font-weight: 600; }
-    .status-error { color: #e74c3c; font-weight: 600; }
-    .result-box {
-      margin: 1rem 0; padding: 1rem; border-radius: 4px;
-      background: #fff; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    .btn-update {
+      background: var(--accent); color: white;
     }
-    .result-success { border-left: 4px solid #27ae60; }
-    .result-error { border-left: 4px solid #e74c3c; }
-    .refresh-hint { color: #888; font-size: 0.85rem; margin-top: 1rem; }
-    .count { font-variant-numeric: tabular-nums; }
-    .pair-label { font-weight: 600; }
+    .btn-update:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-update:disabled { background: var(--surface-hover); color: var(--text-muted); cursor: not-allowed; transform: none; }
+    .btn-retry { background: var(--orange); color: white; }
+    .btn-retry:hover { background: #d97706; }
+
+    /* Result toast */
+    .toast {
+      max-width: 1000px; margin: 0 auto 2rem; padding: 0 1rem;
+    }
+    .toast-msg {
+      padding: 0.85rem 1.25rem; border-radius: 10px; font-size: 0.88rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .toast-success {
+      background: var(--green-bg); border: 1px solid rgba(34,197,94,0.2);
+      color: var(--green);
+    }
+    .toast-error {
+      background: var(--red-bg); border: 1px solid rgba(239,68,68,0.2);
+      color: var(--red);
+    }
+    .toast-msg .toast-icon { font-size: 1.1rem; }
+
+    /* Auto-refresh hint */
+    .hint {
+      max-width: 1000px; margin: 0 auto; padding: 0 1rem 2rem;
+      text-align: center; color: var(--text-muted); font-size: 0.8rem;
+    }
+    .hint kbd {
+      display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px;
+      background: var(--surface); border: 1px solid var(--border);
+      font-size: 0.75rem; font-family: inherit;
+    }
   </style>
 </head>
 <body>
-  <h1>数据维护</h1>
-  <p class="subtitle">查看数据状态并执行增量更新。点击"更新"按钮后，页面会自动轮询获取进度。</p>
+  <nav class="nav">
+    <div class="nav-brand">Arbitrage</div>
+    <div class="nav-links">
+      <a href="/">首页</a>
+      <a href="/maintenance" class="active">数据维护</a>
+      <a href="/backtest">回测</a>
+    </div>
+  </nav>
 
-  <table>
-    <thead>
-      <tr>
-        <th>数据源</th>
-        <th>交易对</th>
-        <th>起始日期</th>
-        <th>结束日期</th>
-        <th>记录数</th>
-        <th>状态</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody id="data-table">
-      {% for entry in entries %}
-      <tr data-pair="{{ entry.pair }}" data-type="{{ entry.type }}">
-        <td>{{ entry.source }}</td>
-        <td class="pair-label">{{ entry.pair }}</td>
-        <td>{{ entry.min_date[:10] if entry.min_date else 'N/A' }}</td>
-        <td>{{ entry.max_date[:10] if entry.max_date else 'N/A' }}</td>
-        <td class="count">{{ entry.count }}</td>
-        <td id="status-{{ entry.key }}">
-          <span class="status-done">就绪</span>
-        </td>
-        <td>
-          <button class="btn btn-update"
-                  onclick="startUpdate('{{ entry.key }}', '{{ entry.type }}', '{{ entry.pair }}')"
-                  id="btn-{{ entry.key }}">
-            更新
-          </button>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="page-header">
+    <h1>数据维护</h1>
+    <p>查看各数据源的状态与范围，点击"更新"执行增量获取</p>
+  </div>
 
-  <div id="result-area"></div>
-  <p class="refresh-hint">页面每 2 秒自动刷新状态 | 完成后 3 秒自动刷新数据</p>
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>数据源</th>
+            <th>交易对</th>
+            <th>起始日期</th>
+            <th>结束日期</th>
+            <th>记录数</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="data-table">
+          {% for entry in entries %}
+          <tr data-pair="{{ entry.pair }}" data-type="{{ entry.type }}">
+            <td>
+              <span style="color: var(--text-muted); font-size: 0.85rem;">{{ entry.source }}</span>
+            </td>
+            <td>
+              <span class="pair-badge">
+                <span class="pair-dot {{ 'bfusd' if entry.type == 'bfusd' else 'btc' if 'btc' in entry.pair else 'eth' }}"></span>
+                {{ entry.pair }}
+              </span>
+            </td>
+            <td class="date-cell">{{ entry.min_date[:10] if entry.min_date else 'N/A' }}</td>
+            <td class="date-cell">{{ entry.max_date[:10] if entry.max_date else 'N/A' }}</td>
+            <td><span class="count-cell">{{ entry.count }}</span></td>
+            <td id="status-{{ entry.key }}">
+              <span class="status-badge status-ready"><span class="status-dot"></span>就绪</span>
+            </td>
+            <td>
+              <button class="btn btn-update"
+                      onclick="startUpdate('{{ entry.key }}', '{{ entry.type }}', '{{ entry.pair }}')"
+                      id="btn-{{ entry.key }}">
+                更新
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="toast-area"></div>
+
+  <p class="hint">页面每 <kbd>1.5</kbd> 秒自动轮询状态 | 完成后 <kbd>3</kbd> 秒自动刷新数据</p>
 
   <script>
     let pollIntervals = {};
@@ -90,7 +235,7 @@
       btn.disabled = true;
       btn.textContent = '获取中...';
       var statusEl = document.getElementById('status-' + key);
-      statusEl.innerHTML = '<span class="status-running">获取中...</span>';
+      statusEl.innerHTML = '<span class="status-badge status-running"><span class="status-dot"></span>获取中...</span>';
 
       fetch('/api/fetch/start', {
         method: 'POST',
@@ -102,38 +247,41 @@
           fetch('/api/fetch/status/' + jobId)
             .then(function(r) { return r.json(); }).then(function(job) {
               if (!job) return;
-              statusEl.innerHTML = '<span class="status-running">' + (job.message || '获取中...') + '</span>';
+              statusEl.innerHTML = '<span class="status-badge status-running"><span class="status-dot"></span>' + (job.message || '获取中...') + '</span>';
               if (job.status === 'done') {
                 clearInterval(pollIntervals[key]);
                 delete pollIntervals[key];
                 btn.textContent = '更新';
                 btn.disabled = false;
-                statusEl.innerHTML = '<span class="status-done">完成 (' + job.new_records + ' 条)</span>';
-                showResult(key, job, false);
+                statusEl.innerHTML = '<span class="status-badge status-done"><span class="status-dot"></span>完成 (' + job.new_records + ' 条)</span>';
+                showToast(key, job, false);
                 setTimeout(function() { location.reload(); }, 3000);
               } else if (job.status === 'error') {
                 clearInterval(pollIntervals[key]);
                 delete pollIntervals[key];
                 btn.textContent = '重试';
                 btn.disabled = false;
-                statusEl.innerHTML = '<span class="status-error">失败</span>';
-                showResult(key, job, true);
+                statusEl.innerHTML = '<span class="status-badge status-error"><span class="status-dot"></span>失败</span>';
+                showToast(key, job, true);
               }
             });
         }, 1500);
       });
     }
 
-    function showResult(key, job, isError) {
-      var area = document.getElementById('result-area');
-      var cls = isError ? 'result-error' : 'result-success';
+    function showToast(key, job, isError) {
+      var area = document.getElementById('toast-area');
       var pairName = job.pair || 'BFUSD';
-      var html = '<div class="result-box ' + cls + '">';
-      html += '<strong>' + pairName + ':</strong> ' + job.message;
-      if (job.new_records) html += ' (新增 ' + job.new_records + ' 条)';
-      if (job.error) html += '<br><em>错误: ' + job.error + '</em>';
+      var icon = isError ? '❌' : '✅';
+      var cls = isError ? 'toast-error' : 'toast-success';
+      var html = '<div class="toast-msg ' + cls + '">';
+      html += '<span class="toast-icon">' + icon + '</span>';
+      html += '<strong>' + pairName + '</strong>: ' + job.message;
+      if (job.new_records && !isError) html += ' (新增 ' + job.new_records + ' 条)';
+      if (job.error) html += ' <em style="opacity:0.7">— ' + job.error + '</em>';
       html += '</div>';
       area.innerHTML = html;
+      setTimeout(function() { area.innerHTML = ''; }, 8000);
     }
   </script>
 </body>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""taoli WebUI -- 数据维护页面
+"""crypto Arbitrage WebUI -- 数据维护页面
 
 启动: python app.py
 访问: http://127.0.0.1:5000/maintenance
@@ -253,10 +253,8 @@ def run_bfusd_update(job):
 
 @app.route("/")
 def index():
-    return jsonify({
-        "message": "taoli WebUI",
-        "pages": {"maintenance": "/maintenance", "backtest": "/backtest"},
-    })
+    """首页 — 导航到数据维护和回测页面"""
+    return render_template("index.html")
 
 
 @app.route("/maintenance")
@@ -424,5 +422,5 @@ def api_backtest_run():
 
 
 if __name__ == "__main__":
-    print("启动 taoli WebUI: http://127.0.0.1:5000/maintenance")
+    print("启动 crypto Arbitrage WebUI: http://127.0.0.1:5000/maintenance")
     app.run(host="127.0.0.1", port=5000, debug=False)
