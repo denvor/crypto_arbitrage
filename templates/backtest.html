@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>策略回测 - crypto Arbitrage</title>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Arbitrage">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -485,6 +490,14 @@
         table.classList.add('active');
         btn.textContent = '收起明细';
       }
+    }
+
+    // ---- PWA Service Worker ----
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('{{ url_for("static", filename="sw.js") }}')
+          .catch(function() {});
+      });
     }
   </script>
 </body>
