@@ -32,7 +32,7 @@ from utils import (
 from backtest import run_backtest, load_log_data, load_bfusd_rates
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-app = Flask(__name__, static_folder=PROJECT_DIR, static_url_path="/static")
+app = Flask(__name__, static_folder=os.path.join(PROJECT_DIR, "static"), static_url_path="/static")
 
 
 # ---- 后台更新函数 ----
@@ -252,6 +252,30 @@ def run_bfusd_update(job):
 
 
 # ---- Flask 路由 ----
+
+@app.route("/static/manifest.json")
+def manifest():
+    """Serve Web App Manifest for PWA"""
+    from flask import jsonify, Response
+    manifest_data = {
+        "name": "crypto Arbitrage — 资金费率套利回测",
+        "short_name": "Arbitrage",
+        "description": "币安合约资金费率套利回测工具",
+        "start_url": "/backtest",
+        "display": "standalone",
+        "background_color": "#0f1117",
+        "theme_color": "#6366f1",
+        "orientation": "portrait-primary",
+        "categories": ["finance", "productivity"],
+        "icons": [
+            {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ],
+    }
+    resp = jsonify(manifest_data)
+    resp.mimetype = "application/manifest+json"
+    return resp
+
 
 @app.route("/")
 def index():

@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>crypto Arbitrage — 资金费率套利回测</title>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Arbitrage">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -113,6 +118,29 @@
       color: var(--accent-hover); text-decoration: none; transition: color 0.15s;
     }
     .footer a:hover { color: var(--accent); }
+
+    /* PWA Install Banner */
+    .install-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--surface); border-top: 1px solid var(--border);
+      z-index: 1000; font-size: 0.9rem;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+    }
+    .install-icon { font-size: 1.5rem; }
+    .install-text { color: var(--text-muted); flex: 1; }
+    .install-btn {
+      padding: 0.4rem 1.25rem; background: var(--accent); color: white;
+      border: none; border-radius: 8px; font-weight: 700; cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .install-btn:hover { background: var(--accent-hover); }
+    .install-close {
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.3rem; cursor: pointer; padding: 0 0.25rem;
+    }
+    .install-close:hover { color: var(--text); }
   </style>
 </head>
 <body>
@@ -172,5 +200,55 @@
     crypto Arbitrage &middot; 币安资金费率套利回测工具 &middot; Python + SQLite &middot;
     <a href="https://github.com/denvor/crypto_arbitrage" target="_blank" rel="noopener">GitHub</a>
   </div>
+
+  <script>
+    // ---- PWA Service Worker ----
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('{{ url_for("static", filename="sw.js") }}')
+          .catch(function() {});
+      });
+    }
+
+    // ---- PWA Install Banner ----
+    var deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      showInstallBanner();
+    });
+
+    function showInstallBanner() {
+      if (document.getElementById('pwa-install')) return;
+      var banner = document.createElement('div');
+      banner.id = 'pwa-install';
+      banner.innerHTML =
+        '<div class="install-bar">' +
+          '<span class="install-icon">&#x20bf;</span>' +
+          '<span class="install-text">安装 crypto Arbitrage</span>' +
+          '<button class="install-btn" id="install-btn">安装</button>' +
+          '<button class="install-close" id="install-close">&times;</button>' +
+        '</div>';
+      document.body.appendChild(banner);
+
+      document.getElementById('install-btn').addEventListener('click', function() {
+        banner.style.display = 'none';
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(result) {
+          deferredPrompt = null;
+        });
+      });
+      document.getElementById('install-close').addEventListener('click', function() {
+        banner.style.display = 'none';
+      });
+    }
+
+    window.addEventListener('appinstalled', function() {
+      deferredPrompt = null;
+      var b = document.getElementById('pwa-install');
+      if (b) b.style.display = 'none';
+    });
+  </script>
 </body>
 </html>

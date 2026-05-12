@@ -1,0 +1,25 @@
+{
+  "name": "crypto Arbitrage — 资金费率套利回测",
+  "short_name": "Arbitrage",
+  "description": "币安合约资金费率套利回测工具",
+  "start_url": "/backtest",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
