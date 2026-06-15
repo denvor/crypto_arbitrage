@@ -9,18 +9,18 @@
 ### WebUI（推荐）
 
 ```bash
-# 初始化数据库
-python scripts/initdb.py
-
 # 安装依赖
 pip install -r requirements.txt
 
-# 启动 uWSGI
-uwsgi --ini uwsgi/uwsgi.ini
+# 初始化数据库
+python scripts/initdb.py
+
+# 启动 Flask
+python app.py
 
 # 访问
-# http://<IP>:9090/maintenance   数据维护页面
-# http://<IP>:9090/backtest      回测页面
+# http://127.0.0.1:5000/maintenance   数据维护页面
+# http://127.0.0.1:5000/backtest      回测页面
 ```
 
 ### 命令行

@@ -60,9 +60,8 @@ def main():
     init_bfusd_db()
     print("完成。现在可以运行 fetch 脚本获取数据，或直接启动 WebUI。")
     print()
+    print("  启动 WebUI: python app.py")
     print("  获取数据:  python scripts/fetch_funding_rate_db.py")
-    print("  启动 WebUI: uwsgi --ini uwsgi/uwsgi.ini")
-    print("            python app.py")
 
 
 if __name__ == "__main__":
