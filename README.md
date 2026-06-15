@@ -9,6 +9,9 @@
 ### WebUI（推荐）
 
 ```bash
+# 初始化数据库
+python initdb.py
+
 # 安装依赖
 pip install -r requirements.txt
 
