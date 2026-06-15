@@ -135,7 +135,7 @@ python scripts/backtest.py --pair btcusdt --start 2024-06-01 --end 2024-06-07 --
 
 ## 数据文件
 
-数据通过 `scripts/fetch_funding_rate_db.py` 获取，存储在 `db/funding_rate.db` 中。历史原始数据文件存储在 `files/` 目录：
+数据通过 `scripts/fetch_funding_rate_db.py` 获取（代理自动从 `config.ini` 的 `[proxy]` 段读取），存储在 `db/funding_rate.db` 中。历史原始数据文件存储在 `files/` 目录：
 
 | 文件 | 内容 |
 |------|------|
@@ -151,6 +151,7 @@ python scripts/backtest.py --pair btcusdt --start 2024-06-01 --end 2024-06-07 --
 crypto_arbitrage/
   config.ini              # 全局配置（交易对、代理、回测参数）
   app.py                  # Flask WebUI 入口
+  initdb.py               # 首次使用前初始化数据库
   requirements.txt        # Python 依赖（requests, flask）
   uwsgi/                  # uWSGI 配置
     uwsgi.ini
