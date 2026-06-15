@@ -58,6 +58,7 @@ def run_funding_rate_update(job):
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_pair ON funding_rate(pair)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON funding_rate(timestamp)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_pair_ts ON funding_rate(pair, timestamp)")
         conn.commit()
 
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -87,29 +88,41 @@ def run_funding_rate_update(job):
             cursor = pair_start
             batch = 0
             pair_inserted = 0
+            sess = requests.Session()
+            if proxies:
+                sess.proxies.update(proxies)
 
             while cursor < end_ts:
                 batch += 1
-                resp = requests.get(
-                    "https://fapi.binance.com/fapi/v1/fundingRate",
-                    params={"symbol": tbl, "startTime": cursor,
-                            "endTime": end_ts, "limit": 1000},
-                    timeout=10, proxies=proxies,
-                )
-                resp.raise_for_status()
-                rates = resp.json()
+                try:
+                    resp = sess.get(
+                        "https://fapi.binance.com/fapi/v1/fundingRate",
+                        params={"symbol": tbl, "startTime": cursor,
+                                "endTime": end_ts, "limit": 1000},
+                        timeout=(10, 20),
+                    )
+                    resp.raise_for_status()
+                    rates = resp.json()
+                except Exception as e:
+                    update_job(job["job_id"],
+                               message=f"{pair_name}: 第{batch}批请求失败: {e}")
+                    break
 
                 if not rates:
                     break
 
+                # 一次性加载已有 timestamp 到 set
+                existing_set = set(
+                    r[0] for r in conn.execute(
+                        "SELECT timestamp FROM funding_rate WHERE pair = ?",
+                        (pair_name,),
+                    ).fetchall()
+                )
+
                 inserted = 0
                 for rate in rates:
                     funding_ts = int(rate["fundingTime"])
-                    existing = conn.execute(
-                        "SELECT 1 FROM funding_rate WHERE pair = ? AND timestamp = ?",
-                        (pair_name, funding_ts),
-                    ).fetchone()
-                    if existing:
+                    if funding_ts in existing_set:
                         continue
 
                     price_val = rate.get("markPrice") or "N/A"
@@ -129,7 +142,7 @@ def run_funding_rate_update(job):
                 total_inserted += inserted
                 cursor = int(rates[-1]["fundingTime"]) + 1
                 update_job(job["job_id"],
-                           message=f"{pair_name}: 第{batch}批, 累计 {pair_inserted} 条")
+                           message=f"{pair_name}: 第{batch}批, 新增{inserted}条, 累计{pair_inserted}条")
 
             update_job(job["job_id"],
                        message=f"{pair_name}: 完成, 新增 {pair_inserted} 条")
@@ -175,6 +188,9 @@ def run_bfusd_update(job):
         total_inserted = 0
         batch_num = 0
         last_end_time = int(datetime.now().timestamp() * 1000)
+        sess = requests.Session()
+        if proxies:
+            sess.proxies.update(proxies)
 
         def make_signed_url(base_url, params, secret):
             sorted_params = sorted((k, v) for k, v in params.items()
@@ -196,8 +212,7 @@ def run_bfusd_update(job):
                        message=f"BFUSD: 第{batch_num}批...")
 
             try:
-                resp = requests.get(url, headers=headers,
-                                    proxies=proxies, timeout=30)
+                resp = sess.get(url, headers=headers, timeout=(10, 20))
                 if resp.status_code == 429:
                     time.sleep(5)
                     continue
