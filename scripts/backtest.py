@@ -76,6 +76,7 @@ def load_bfusd_rates(start_date, end_date):
 
     返回 dict: {date_str: apr}，date_str 格式为 YYYY-MM-DD
     """
+    BFUSD_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(BFUSD_DB_PATH))
     start_ts = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp() * 1000)
     end_ts = int(datetime.strptime(end_date, "%Y-%m-%d").timestamp() * 1000)
