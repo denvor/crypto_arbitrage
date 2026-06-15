@@ -230,7 +230,7 @@
 
   <div id="toast-area"></div>
 
-  <p class="hint">页面每 <kbd>1.5</kbd> 秒自动轮询状态 | 完成后 <kbd>3</kbd> 秒自动刷新数据</p>
+  <p class="hint">更新过程中每 <kbd>1.5</kbd> 秒轮询进度 | 完成后不会自动刷新页面</p>
 
   <script>
     let pollIntervals = {};
@@ -261,7 +261,6 @@
                 btn.disabled = false;
                 statusEl.innerHTML = '<span class="status-badge status-done"><span class="status-dot"></span>完成 (' + job.new_records + ' 条)</span>';
                 showToast(key, job, false);
-                setTimeout(function() { location.reload(); }, 3000);
               } else if (job.status === 'error') {
                 clearInterval(pollIntervals[key]);
                 delete pollIntervals[key];
