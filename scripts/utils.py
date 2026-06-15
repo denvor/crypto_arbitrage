@@ -57,27 +57,35 @@ def get_pair_stats(conn):
     Returns list of dicts:
       [{"pair": "BTCUSDT", "min_date": "2019-09-10 16:00:00",
         "max_date": "2026-05-02 00:00:00", "count": 7277}, ...]
+    数据库为空或无表时返回空列表。
     """
-    rows = conn.execute(
-        "SELECT pair, MIN(time), MAX(time), COUNT(*) "
-        "FROM funding_rate GROUP BY pair ORDER BY pair"
-    ).fetchall()
-    return [
-        {"pair": r[0], "min_date": r[1], "max_date": r[2], "count": r[3]}
-        for r in rows
-    ]
+    try:
+        rows = conn.execute(
+            "SELECT pair, MIN(time), MAX(time), COUNT(*) "
+            "FROM funding_rate GROUP BY pair ORDER BY pair"
+        ).fetchall()
+        return [
+            {"pair": r[0], "min_date": r[1], "max_date": r[2], "count": r[3]}
+            for r in rows
+        ]
+    except conn.OperationalError:
+        return []
 
 
 def get_bfusd_stats(conn):
     """获取 bfusd_rate 数据库的数据范围统计
     Returns dict: {"min_date": "2024-11-20", "max_date": "2026-05-02", "count": 529}
+    数据库为空或无表时返回全零 dict。
     """
-    row = conn.execute(
-        "SELECT MIN(date), MAX(date), COUNT(*) FROM bfusd_rate"
-    ).fetchone()
-    return {
-        "min_date": row[0], "max_date": row[1], "count": row[2]
-    }
+    try:
+        row = conn.execute(
+            "SELECT MIN(date), MAX(date), COUNT(*) FROM bfusd_rate"
+        ).fetchone()
+        return {
+            "min_date": row[0], "max_date": row[1], "count": row[2]
+        }
+    except conn.OperationalError:
+        return {"min_date": None, "max_date": None, "count": 0}
 
 
 # ---- 后台任务管理 ----

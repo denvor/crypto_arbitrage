@@ -44,6 +44,7 @@ def run_funding_rate_update(job):
         proxies = get_proxies()
         pairs = get_pairs(config)
 
+        FUNDING_DB.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(FUNDING_DB))
         conn.execute("""
             CREATE TABLE IF NOT EXISTS funding_rate (
@@ -154,6 +155,7 @@ def run_bfusd_update(job):
 
         if not api_key or not api_secret:
             raise ValueError("config.ini 中 [keys] 段缺少 api_key 或 api_secret")
+        BFUSD_DB.parent.mkdir(parents=True, exist_ok=True)
 
         conn = sqlite3.connect(str(BFUSD_DB))
         conn.execute("""
@@ -292,6 +294,7 @@ def maintenance():
     entries = []
 
     # 资金费率条目
+    FUNDING_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(FUNDING_DB))
     stats = get_pair_stats(conn)
     conn.close()
@@ -308,6 +311,7 @@ def maintenance():
         })
 
     # BFUSD 条目
+    BFUSD_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(BFUSD_DB))
     bfusd = get_bfusd_stats(conn)
     conn.close()
@@ -361,6 +365,7 @@ def backtest():
     pairs = get_pairs(config)
 
     # 获取各交易对数据范围
+    FUNDING_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(FUNDING_DB))
     stats = get_pair_stats(conn)
     conn.close()
@@ -372,6 +377,10 @@ def backtest():
             "max": s["max_date"][:10],
             "count": s["count"],
         }
+    # 为暂无数据的交易对填充默认值，避免模板渲染报错
+    for key, name in pairs.items():
+        if name not in pair_ranges:
+            pair_ranges[name] = {"min": "--", "max": "--", "count": 0}
 
     return render_template("backtest.html", pairs=pairs, pair_ranges=pair_ranges)
 
