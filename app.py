@@ -299,15 +299,17 @@ def maintenance():
     stats = get_pair_stats(conn)
     conn.close()
 
-    for s in stats:
+    stat_map = {s["pair"]: s for s in stats}
+    for key, name in pairs.items():
+        s = stat_map.get(name, {})
         entries.append({
-            "key": f"fr_{s['pair']}",
+            "key": f"fr_{name}",
             "source": "资金费率",
             "type": "funding_rate",
-            "pair": s["pair"],
-            "min_date": s["min_date"],
-            "max_date": s["max_date"],
-            "count": s["count"],
+            "pair": name,
+            "min_date": s.get("min_date"),
+            "max_date": s.get("max_date"),
+            "count": s.get("count", 0),
         })
 
     # BFUSD 条目
