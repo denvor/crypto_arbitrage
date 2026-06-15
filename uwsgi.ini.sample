@@ -2,9 +2,23 @@
 # 部署前修改 PROJECT_DIR 为实际项目目录
 chdir = /path/to/crypto_arbitrage
 module = app:app
+
+# ========== 部署模式选择 ==========
+# 方案 A: 部署在网站根目录 (http://yourdomain.com/)
+#http = 0.0.0.0:9090
+
+# 方案 B: 部署在子目录 (http://yourdomain.com/arbitrage/)
+# 取消注释以下两行，并注释上面的 http 行
+#http = 0.0.0.0:9090
+#route-run = set:SCRIPT_NAME=/arbitrage; addheader:SCRIPT_NAME=/arbitrage
+#
+# 或者使用 uWSGI 的 mount（推荐）：
+#http = 0.0.0.0:9090
+#mount = /arbitrage=app.py
+#manage-script-name = true
+
 #socket = /tmp/uwsgi.sock
 #chmod-socket = 660
-http = 0.0.0.0:9090
 #http = 127.0.0.1:5000
 #socket = 127.0.0.1:5000
 master = true
