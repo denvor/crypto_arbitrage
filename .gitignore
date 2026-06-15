@@ -3,6 +3,7 @@ uwsgi/*
 **/__pycache__/
 logs/*
 db/
+old/
 .claude/
 CLAUDE.md
 config.ini
