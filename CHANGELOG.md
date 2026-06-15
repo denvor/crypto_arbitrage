@@ -1,6 +1,45 @@
 # CHANGELOG
 
-## v2.4.0 - WebUI 深色主题与首页（2026-05-11）
+## v2.5.0 - 代码清理与安全加固（2026-06-15）
+
+### 修复
+
+1. **WebUI 手续费/滑点双负号显示** — 修复概要统计卡和明细表共 4 处渲染，`fee_cost`/`slippage_cost` 已为负值时不再额外添加 `-` 前缀，消除 `--12.00` 显示错误
+2. **首条记录价格无效静默归零** — `first_price <= 0` 时抛出 ValueError 替代 `num_contracts = 0` 的全零结果
+3. **零费率被计为负费率** — `else` 替换为 `elif rate < 0`，`rate == 0` 不再计入 negative_count，新增 `zero_count` 显示
+4. **`.gitignore` 不匹配子目录 `__pycache__`** — `__pycache__/*` 替换为 `**/__pycache__/`
+
+### 安全
+
+5. **assert 替换为 if/raise ValueError** — capital/leverage 校验使用 `if/raise` 替代 `assert`，避免 `python -O` 模式下被跳过
+
+### 健壮性
+
+6. **safe_float() 兜底数据异常** — 新增 `utils.safe_float()`，`float("N/A")`、`float("")`、`float(None)` 等场景统一返回 0.0，消除数据错误导致的崩溃
+7. **首条记录价格校验** — 新增 `first_price <= 0` 显式检查，数据损坏时立即给出明确错误
+8. **config.ini 配置容错** — 手续费字段使用 `safe_float(..., fallback)`，malformed 配置优雅降级到默认值
+9. **错误分类修正** — WebUI 无效输入返回 400 而非 500；数据错误与参数错误的异常分离，各自使用正确的错误分类
+
+### 简化
+
+10. **提取 safe_float() / pct() 到 utils.py** — 消除 3 处 try/except 重复，9 处 inline 百分比计算统一为函数调用
+11. **移除空 records 死代码守卫** — 调用方均已前置检查 `if not records: continue`，函数内 14 行重复返回字典不再需要
+12. **移除哨兵值** — `max_profit`/`max_loss` 从 `float("-inf"/"inf")` + 后处理退化为直接初始化为 0，语义正确且简洁
+13. **移除死 else 分支** — `format_result` 中 `if stats["detail"] else "期间: N/A"` 的词法 `else` 分支永不会执行，移除
+
+### 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `scripts/utils.py` | **新增** `safe_float()`、`pct()` 工具函数 |
+| `scripts/backtest.py` | safe_float/pct 适配、参数校验、首条价格校验、零费率语义修正、死代码移除 |
+| `app.py` | 参数解析 try/except、前置校验、try/except ValueError 包裹 run_backtest |
+| `templates/backtest.html` | 修复双负号显示（概要 + 明细共 4 处） |
+| `.gitignore` | `__pycache__/*` → `**/__pycache__/` |
+
+---
+
+
 
 ### 新增功能
 
