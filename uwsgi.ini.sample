@@ -1,0 +1,17 @@
+[uwsgi]
+# 部署前修改 PROJECT_DIR 为实际项目目录
+chdir = /path/to/crypto_arbitrage
+module = app:app
+#socket = /tmp/uwsgi.sock
+#chmod-socket = 660
+http = 0.0.0.0:9090
+#http = 127.0.0.1:5000
+#socket = 127.0.0.1:5000
+master = true
+processes = 4
+threads = 2
+vacuum = true
+py_auto_reload = 1
+# pidfile 和 log 路径基于项目目录
+pidfile = /path/to/crypto_arbitrage/uwsgi/pid_uwsgi.pid
+daemonize = /path/to/crypto_arbitrage/logs/log_uwsgi.log
