@@ -153,6 +153,7 @@ def main():
         print("错误: config.ini 中 [keys] 段缺少 api_key 或 api_secret")
         sys.exit(1)
 
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     create_table(conn)
 

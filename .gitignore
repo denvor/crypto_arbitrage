@@ -2,6 +2,7 @@ venv/*
 uwsgi/*
 **/__pycache__/
 logs/*
+db/
 .claude/
 CLAUDE.md
 config.ini

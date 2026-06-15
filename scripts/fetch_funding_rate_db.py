@@ -154,6 +154,7 @@ def main():
         print(f"代理: {proxies['http']}")
         sys.stdout.flush()
 
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     create_table(conn)
 

@@ -47,6 +47,7 @@ def load_config():
 
 def load_log_data(pair_name, start_date, end_date):
     """从数据库加载指定交易对、指定时间段内的资金费率数据"""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     start_ts = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp() * 1000)
     end_ts = int(datetime.strptime(end_date, "%Y-%m-%d").timestamp() * 1000)
