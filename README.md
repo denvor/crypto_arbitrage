@@ -135,13 +135,7 @@ python scripts/backtest.py --pair btcusdt --start 2024-06-01 --end 2024-06-07 --
 
 ## 数据文件
 
-数据通过 `scripts/fetch_funding_rate_db.py` 获取（代理自动从 `config.ini` 的 `[proxy]` 段读取），存储在 `db/funding_rate.db` 中。历史原始数据文件存储在 `files/` 目录：
-
-| 文件 | 内容 |
-|------|------|
-| files/coin2019.log | 2019 年资金费率数据 |
-| files/coin2020.log | 2020 年资金费率数据 |
-| ... | ... |
+数据通过 `scripts/fetch_funding_rate_db.py` 获取（代理自动从 `config.ini` 的 `[proxy]` 段读取），存储在 `db/funding_rate.db` 中。
 
 每个交易对在 `config.ini` 中有 `time` 字段，表示该交易对上线日期。回测时会自动检查，早于上线日期的数据会被跳过。
 
@@ -166,6 +160,5 @@ crypto_arbitrage/
   db/                     # SQLite 数据库
     funding_rate.db
     bfusd.db
-  files/                  # 历史原始数据（旧版）
   old/                    # 已废弃的旧版脚本
 ```
