@@ -12,7 +12,7 @@
 3. **去重从 1000 次 SQL 改为 set 查** — `fetch_funding_rate_db.py` 和 `app.py` 后台更新中，逐条 `SELECT 1` 改为一次性加载 `set(timestamps)` 内存查重，减少 SQLite 查询 1000 倍。
 4. **去掉 klines API 价格回退** — `fetch_funding_rate_db.py` 中 `markPrice` 为空时不再逐条查询 klines API 补价格，直接填 `N/A`（价格仅作辅助参考，不影响资金费率收益计算）。消除每批潜在 1000 次额外 API 请求导致的卡顿。
 5. **Session 复用连接池** — `fetch_funding_rate_db.py` / `app.py` / `fetch_bfusd_rate.py` 统一改用 `requests.Session()` 替代裸 `requests.get(proxies=proxies)`，修复 HTTP 代理 CONNECT 隧道超时不生效导致永久挂起的问题。
-6. **复合索引 idx_pair_ts** — `initdb.py` 和 `app.py` 建表时新增 `idx_pair_ts(pair, timestamp)` 索引，加速 `WHERE pair = ?` 查询。
+6. **复合索引 idx_pair_ts** — `scripts/initdb.py` 和 `app.py` 建表时新增 `idx_pair_ts(pair, timestamp)` 索引，加速 `WHERE pair = ?` 查询。
 7. **数据维护页完成后不再自动刷新** — 去掉 `setTimeout(location.reload, 3000)`，更新完成后仅显示 Toast 和状态行，不再强制整页刷新。
 
 ### 新增
@@ -23,7 +23,7 @@
 
 | 文件 | 变更 |
 |------|------|
-| `initdb.py` | **新建**：数据库初始化脚本 |
+| `scripts/initdb.py` | **新建**：数据库初始化脚本 |
 | `scripts/fetch_funding_rate_db.py` | Session 化、set 去重、去掉 klines 回退、百分比修复、耗时打印 |
 | `scripts/fetch_bfusd_rate.py` | Session 化、重试逻辑统一 |
 | `app.py` | 后台更新 Session 化 + set 去重 + 复合索引、错误处理改进 |

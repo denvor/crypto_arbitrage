@@ -4,13 +4,13 @@
 克隆代码后首次运行前执行此脚本，创建所需的数据库文件和表结构。
 
 用法:
-    python initdb.py
+    python scripts/initdb.py
 """
 
 import sqlite3
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 FUNDING_DB = ROOT / "db" / "funding_rate.db"
 BFUSD_DB = ROOT / "db" / "bfusd.db"
 

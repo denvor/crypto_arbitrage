@@ -10,7 +10,7 @@
 
 ```bash
 # 初始化数据库
-python initdb.py
+python scripts/initdb.py
 
 # 安装依赖
 pip install -r requirements.txt
@@ -151,11 +151,11 @@ python scripts/backtest.py --pair btcusdt --start 2024-06-01 --end 2024-06-07 --
 crypto_arbitrage/
   config.ini              # 全局配置（交易对、代理、回测参数）
   app.py                  # Flask WebUI 入口
-  initdb.py               # 首次使用前初始化数据库
   requirements.txt        # Python 依赖（requests, flask）
   uwsgi/                  # uWSGI 配置
     uwsgi.ini
   scripts/                # Python 脚本
+    initdb.py             # 首次使用前初始化数据库
     utils.py              # 共享工具（代理、配置、DB 统计、任务管理）
     backtest.py           # 回测程序
     fetch_funding_rate_db.py  # 数据获取程序（资金费率）
