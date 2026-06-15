@@ -30,6 +30,18 @@ from utils import get_proxies, ROOT, CONFIG_PATH
 
 DB_PATH = ROOT / "db" / "bfusd.db"
 proxies = None
+session = None
+
+
+def get_session():
+    """创建带代理的 Session"""
+    global session
+    if session is not None:
+        return session
+    session = requests.Session()
+    if proxies:
+        session.proxies.update(proxies)
+    return session
 
 
 def make_signed_url(base_url, params, secret):
@@ -53,6 +65,39 @@ def create_table(conn):
     conn.commit()
 
 
+def safe_signed_get(url, headers):
+    """带重试的签名 GET 请求，返回 response json 或 None"""
+    s = get_session()
+    for attempt in range(3):
+        try:
+            print(f"    请求 Binance API... ", end="")
+            sys.stdout.flush()
+            resp = s.get(url, headers=headers, timeout=(10, 20))
+            resp.raise_for_status()
+            print("完成")
+            return resp.json()
+        except requests.exceptions.Timeout:
+            print(f"超时 (第{attempt+1}次/3)")
+        except requests.exceptions.ConnectionError as e:
+            print(f"连接失败 (第{attempt+1}次/3): {e}")
+        except requests.exceptions.HTTPError as e:
+            if resp.status_code == 429:
+                print(f"限流 (第{attempt+1}次/3), 等待 5 秒")
+                time.sleep(5)
+                continue
+            print(f"HTTP {resp.status_code}: {e}")
+            return None
+        except Exception as e:
+            print(f"请求异常: {e}")
+            return None
+        if attempt < 2:
+            wait = (attempt + 1) * 2
+            print(f"    等待 {wait} 秒后重试...")
+            time.sleep(wait)
+    print("    重试耗尽，跳过本批")
+    return None
+
+
 def fetch_all_data(conn, api_key, api_secret, latest_date):
     """用 endTime 逐批获取增量数据
 
@@ -69,6 +114,10 @@ def fetch_all_data(conn, api_key, api_secret, latest_date):
 
     while True:
         batch_num += 1
+        now_str = time.strftime("%H:%M:%S")
+        print(f"  [{now_str}] 第{batch_num}批 {total_inserted}条已获取 → 请求中...")
+        sys.stdout.flush()
+
         timestamp = str(int(time.time() * 1000))
         params = {
             "timestamp": timestamp,
@@ -78,23 +127,14 @@ def fetch_all_data(conn, api_key, api_secret, latest_date):
         url = make_signed_url(api_base, params, api_secret)
         headers = {"X-MBX-APIKEY": api_key}
 
-        try:
-            resp = requests.get(url, headers=headers, proxies=proxies, timeout=30)
-            if resp.status_code == 429:
-                print(f"  第{batch_num}批: 限流，等待 5 秒...")
-                sys.stdout.flush()
-                time.sleep(5)
-                continue
-            resp.raise_for_status()
-            data = resp.json()
-        except requests.exceptions.RequestException as e:
-            print(f"  第{batch_num}批: 请求异常: {e}")
-            sys.stdout.flush()
+        data = safe_signed_get(url, headers)
+        if data is None:
+            print(f"  ⚠ 第{batch_num}批获取失败，停止")
             break
 
         rows = data.get("rows", [])
         if not rows:
-            print(f"  第{batch_num}批: 无数据，获取完成")
+            print(f"  [{now_str}] 第{batch_num}批: 无更多数据，获取完成")
             sys.stdout.flush()
             break
 
@@ -102,7 +142,7 @@ def fetch_all_data(conn, api_key, api_secret, latest_date):
 
         # 如果这批里最新的日期不晚于数据库截止日，说明已覆盖
         if latest_date and newest_date_in_batch <= latest_date:
-            print(f"  第{batch_num}批: 日期 {newest_date_in_batch} 已在数据库中(截止 {latest_date})，增量获取完成")
+            print(f"  [{now_str}] 第{batch_num}批: 日期 {newest_date_in_batch} 已在数据库中(截止 {latest_date})，增量获取完成")
             sys.stdout.flush()
             break
 
@@ -128,7 +168,7 @@ def fetch_all_data(conn, api_key, api_secret, latest_date):
         last_end_time = last_time - 1
 
         oldest_date_in_batch = datetime.fromtimestamp(rows[-1]["time"] / 1000).strftime("%Y-%m-%d")
-        print(f"  第{batch_num}批: {len(rows)} 条 ({newest_date_in_batch} ~ {oldest_date_in_batch}), 新增 {inserted} 条")
+        print(f"    ↑ 新增{inserted}条 累计{total_inserted}条 ({newest_date_in_batch}~{oldest_date_in_batch})")
         sys.stdout.flush()
 
         time.sleep(3)  # 批次间延迟，避免限流

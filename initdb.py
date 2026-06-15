@@ -31,6 +31,7 @@ def init_funding_rate_db():
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pair ON funding_rate(pair)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON funding_rate(timestamp)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pair_ts ON funding_rate(pair, timestamp)")
     conn.commit()
     conn.close()
     print(f"  ✓ {FUNDING_DB}")
