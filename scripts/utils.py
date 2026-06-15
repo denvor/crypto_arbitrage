@@ -152,3 +152,16 @@ def get_active_jobs():
         if data:
             jobs.append(data)
     return jobs
+
+
+def safe_float(value, default=0.0):
+    """安全地将值转换为 float，失败时返回默认值"""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def pct(value, total):
+    """计算百分比，避免除零错误"""
+    return (value / total * 100) if total else 0

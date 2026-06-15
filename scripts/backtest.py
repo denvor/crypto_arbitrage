@@ -12,6 +12,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from utils import safe_float, pct
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPT_DIR.parent
@@ -35,9 +38,9 @@ def load_config():
         tbl = name.lower()
         pairs[tbl] = {"name": name, "tbl": tbl, "time": time}
     fees = {
-        "futures_fee": float(config.get("backtest", "futures_fee", fallback="0.0004")),
-        "spot_fee": float(config.get("backtest", "spot_fee", fallback="0.0004")),
-        "slippage": float(config.get("backtest", "slippage", fallback="0.0001")),
+        "futures_fee": safe_float(config.get("backtest", "futures_fee", fallback="0.0004"), 0.0004),
+        "spot_fee": safe_float(config.get("backtest", "spot_fee", fallback="0.0004"), 0.0004),
+        "slippage": safe_float(config.get("backtest", "slippage", fallback="0.0001"), 0.0001),
     }
     return pairs, fees
 
@@ -101,6 +104,11 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
     - 每次费率时仓位价值 = 合约数量 × 当时价格（随价格波动）
     - 资金费率收益 = 费率 × 当时仓位价值
     """
+    if capital <= 0:
+        raise ValueError(f"capital 必须为正数，收到 {capital}")
+    if leverage <= 0:
+        raise ValueError(f"leverage 必须为正数，收到 {leverage}")
+
     futures_fee_rate = fees["futures_fee"]
     spot_fee_rate = fees["spot_fee"]
     slippage_rate = fees["slippage"]
@@ -115,21 +123,26 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
     bfusd_calculated = set()  # 记录已计算 BFUSD 的日期，避免同一天重复计算
     positive_count = 0
     negative_count = 0
-    max_profit = float("-inf")
-    max_loss = float("inf")
+    max_profit = 0
+    max_loss = 0
     detail = []
 
     # 合约数量固定（用第一笔价格计算）
-    num_contracts = initial_position / float(records[0]["价格"])
+    first_price = safe_float(records[0].get("价格"))
+    if first_price <= 0:
+        raise ValueError(f"首条记录价格无效: {first_price}")
+    num_contracts = initial_position / first_price
 
     # 手续费和滑点只在开仓和平仓时各收一次
     total_fee_cost = -2 * (futures_fee_rate + spot_fee_rate) * initial_position
     total_slippage_cost = -2 * slippage_rate * initial_position
 
     for i, rec in enumerate(records):
-        rate = float(rec["资金费率"])
-        price_str = rec.get("价格", "").strip()
-        price = float(price_str) if price_str else 0.0
+        try:
+            rate = float(rec["资金费率"])
+            price = float(rec["价格"])
+        except (ValueError, TypeError):
+            rate = price = 0.0
         funding_time = rec["时间"]
         ts = int(rec["时间戳"])
 
@@ -150,7 +163,7 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
 
         if rate > 0:
             positive_count += 1
-        else:
+        elif rate < 0:
             negative_count += 1
 
         if funding_pnl > max_profit:
@@ -176,9 +189,9 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
         })
 
     net_profit = funding_profit + bfusd_profit + total_fee_cost + total_slippage_cost
-    net_pct = (net_profit / capital) * 100 if capital else 0
-    funding_pct = (funding_profit / capital) * 100 if capital else 0
-    bfusd_pct = (bfusd_profit / capital) * 100 if capital else 0
+    net_pct = pct(net_profit, capital)
+    funding_pct = pct(funding_profit, capital)
+    bfusd_pct = pct(bfusd_profit, capital)
 
     # 计算持有天数用于年化
     if len(records) >= 2:
@@ -198,17 +211,18 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
         "bfusd_profit": bfusd_profit,
         "bfusd_pct": bfusd_pct,
         "fee_cost": total_fee_cost,
-        "fee_pct": (total_fee_cost / capital * 100) if capital else 0,
+        "fee_pct": pct(total_fee_cost, capital),
         "slippage_cost": total_slippage_cost,
-        "slippage_pct": (total_slippage_cost / capital * 100) if capital else 0,
+        "slippage_pct": pct(total_slippage_cost, capital),
         "net_profit": net_profit,
         "net_pct": net_pct,
         "annualized": annualized,
         "total_count": len(records),
         "positive_count": positive_count,
         "negative_count": negative_count,
-        "max_profit": max_profit if max_profit != float("-inf") else 0,
-        "max_loss": max_loss if max_loss != float("inf") else 0,
+        "zero_count": len(records) - positive_count - negative_count,
+        "max_profit": max_profit,
+        "max_loss": max_loss,
         "days": days,
         "detail": detail,
     }
@@ -218,10 +232,10 @@ def format_result(pair_key, pair_info, stats, with_bfusd=False):
     """格式化输出单个交易对的回测结果"""
     lines = []
     lines.append(f"交易对: {pair_info['name']}")
-    lines.append(f"期间: {stats['detail'][0]['time'][:10]} ~ {stats['detail'][-1]['time'][:10]}" if stats["detail"] else "期间: N/A")
+    lines.append(f"期间: {stats['detail'][0]['time'][:10]} ~ {stats['detail'][-1]['time'][:10]}")
     lines.append(f"总资金: {stats['capital']:,.2f} USDT")
-    spot_pct = stats['spot_cost'] / stats['capital'] * 100 if stats['capital'] else 0
-    margin_pct = stats['margin'] / stats['capital'] * 100 if stats['capital'] else 0
+    spot_pct = pct(stats['spot_cost'], stats['capital'])
+    margin_pct = pct(stats['margin'], stats['capital'])
     lines.append(f"  现货: {stats['spot_cost']:,.2f} USDT ({spot_pct:.1f}%)")
     lines.append(f"  合约保证金: {stats['margin']:,.2f} USDT ({margin_pct:.1f}%)")
     lines.append(f"合约杠杆: {stats['leverage']}x | 初始仓位: {stats['initial_position']:,.2f} USDT")
@@ -237,8 +251,10 @@ def format_result(pair_key, pair_info, stats, with_bfusd=False):
     lines.append(f"净收益:         {stats['net_profit']:+,.2f} USDT  ({stats['net_pct']:+.2f}%)")
     lines.append(f"年化收益率:     {stats['annualized']:+.2f}%")
     lines.append(f"资金费率次数:   {stats['total_count']} 次")
-    lines.append(f"正费率次数:     {stats['positive_count']} 次 ({stats['positive_count']/stats['total_count']*100 if stats['total_count'] else 0:.1f}%)")
-    lines.append(f"负费率次数:     {stats['negative_count']} 次 ({stats['negative_count']/stats['total_count']*100 if stats['total_count'] else 0:.1f}%)")
+    lines.append(f"正费率次数:     {stats['positive_count']} 次 ({pct(stats['positive_count'], stats['total_count']):.1f}%)")
+    lines.append(f"负费率次数:     {stats['negative_count']} 次 ({pct(stats['negative_count'], stats['total_count']):.1f}%)")
+    if stats['zero_count'] > 0:
+        lines.append(f"零费率次数:     {stats['zero_count']} 次 ({pct(stats['zero_count'], stats['total_count']):.1f}%)")
     lines.append(f"最大单笔收益:   {stats['max_profit']:+,.2f} USDT")
     lines.append(f"最大单笔亏损:   {stats['max_loss']:+,.2f} USDT")
 
@@ -349,6 +365,14 @@ def main():
         print("错误: 日期格式错误，请使用 YYYY-MM-DD 格式")
         sys.exit(1)
 
+    # 验证资金和杠杆
+    if args.capital <= 0:
+        print(f"错误: 总资金必须为正数，收到 {args.capital}")
+        sys.exit(1)
+    if args.leverage <= 0:
+        print(f"错误: 杠杆倍数必须为正数，收到 {args.leverage}")
+        sys.exit(1)
+
     # 验证交易对
     if args.pair:
         selected = []
@@ -405,8 +429,12 @@ def main():
             print(f"\n交易对 {pair_name}: 指定时间段内无数据")
             continue
 
-        stats = run_backtest(records, args.capital, args.leverage, fees,
-                             with_bfusd=args.with_bfusd, bfusd_rates=bfusd_rates)
+        try:
+            stats = run_backtest(records, args.capital, args.leverage, fees,
+                                 with_bfusd=args.with_bfusd, bfusd_rates=bfusd_rates)
+        except ValueError as e:
+            print(f"\n交易对 {pair_name}: 数据错误 - {e}")
+            continue
         stats["_name"] = pair_name
         all_results[pair_key] = stats
 

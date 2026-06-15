@@ -449,8 +449,8 @@
         if (r.bfusd_profit !== 0) {
           html += '<dt>BFUSD <span class="bfusd-tag">BFUSD</span></dt><dd class="' + (r.bfusd_profit >= 0 ? 'td-green' : 'td-red') + '">' + fmt(r.bfusd_profit) + ' USDT</dd>';
         }
-        html += '<dt>手续费</dt><dd class="td-red">-' + fmt(r.fee_cost) + ' USDT</dd>';
-        html += '<dt>滑点</dt><dd class="td-red">-' + fmt(r.slippage_cost) + ' USDT</dd>';
+        html += '<dt>手续费</dt><dd class="td-red">' + fmt(r.fee_cost) + ' USDT</dd>';
+        html += '<dt>滑点</dt><dd class="td-red">' + fmt(r.slippage_cost) + ' USDT</dd>';
         html += '<dt>净收益</dt><dd class="' + (r.net_profit >= 0 ? 'td-green' : 'td-red') + '">' + fmt(r.net_profit) + ' USDT (' + fmtPct(r.net_pct) + ')</dd>';
         html += '<dt>最大单笔收益</dt><dd class="td-green">' + fmt(r.max_profit) + ' USDT</dd>';
         html += '<dt>最大单笔亏损</dt><dd class="td-red">' + fmt(r.max_loss) + ' USDT</dd>';
@@ -467,8 +467,8 @@
           html += '<td>' + d.rate.toFixed(6) + '</td>';
           html += '<td>' + d.price.toFixed(2) + '</td>';
           html += '<td class="' + (d.funding_pnl >= 0 ? 'td-green' : 'td-red') + '">' + fmt(d.funding_pnl) + '</td>';
-          html += '<td class="td-red">-' + fmt(d.fee_pnl) + '</td>';
-          html += '<td class="td-red">-' + fmt(d.slippage_pnl) + '</td>';
+          html += '<td class="td-red">' + fmt(d.fee_pnl) + '</td>';
+          html += '<td class="td-red">' + fmt(d.slippage_pnl) + '</td>';
           html += '<td class="' + (d.net_pnl >= 0 ? 'td-green' : 'td-red') + '">' + fmt(d.net_pnl) + '</td>';
           html += '<td class="' + (d.cumulative >= 0 ? 'td-green' : 'td-red') + '">' + fmt(d.cumulative) + '</td>';
           html += '</tr>';

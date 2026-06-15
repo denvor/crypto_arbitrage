@@ -385,11 +385,20 @@ def api_backtest_run():
     pairs_input = data.get("pairs", [])
     start_date = data.get("start")
     end_date = data.get("end")
-    capital = float(data.get("capital", 10000))
-    leverage = float(data.get("leverage", 1))
-    futures_fee = float(data.get("futures_fee", 0.0004))
-    spot_fee = float(data.get("spot_fee", 0.0004))
-    slippage = float(data.get("slippage", 0.0001))
+    try:
+        capital = float(data.get("capital", 10000))
+        leverage = float(data.get("leverage", 1))
+        futures_fee = float(data.get("futures_fee", 0.0004))
+        spot_fee = float(data.get("spot_fee", 0.0004))
+        slippage = float(data.get("slippage", 0.0001))
+    except (ValueError, TypeError):
+        return jsonify({"error": "资金、杠杆、费率参数必须为数值"}), 400
+
+    if capital <= 0:
+        return jsonify({"error": "总资金必须为正数"}), 400
+    if leverage <= 0:
+        return jsonify({"error": "杠杆倍数必须为正数"}), 400
+
     with_bfusd = data.get("with_bfusd", False)
 
     if not start_date or not end_date:
@@ -437,8 +446,11 @@ def api_backtest_run():
         if not records:
             continue
 
-        stats = run_backtest(records, capital, leverage, fees,
-                             with_bfusd=with_bfusd, bfusd_rates=bfusd_rates)
+        try:
+            stats = run_backtest(records, capital, leverage, fees,
+                                 with_bfusd=with_bfusd, bfusd_rates=bfusd_rates)
+        except ValueError as e:
+            return jsonify({"error": f"回测数据错误 ({pair_name}): {e}"}), 400
         stats["_name"] = pair_name
         stats["_pair_key"] = pair_key
         stats["_launch_date"] = launch_date
