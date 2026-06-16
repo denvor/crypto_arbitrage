@@ -1,0 +1,12 @@
+venv/*
+uwsgi/*
+**/__pycache__/
+logs/*
+db/
+old/
+.claude/
+CLAUDE.md
+PLAN.md
+config.ini
+.codegraph/*
+uwsgi.ini.sample
