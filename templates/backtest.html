@@ -215,7 +215,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .bfusd-tag {
+    .yield-tag {
       display: inline-block; font-size: 0.65rem; padding: 0.1rem 0.4rem;
       border-radius: 4px; background: rgba(34,197,94,0.15); color: var(--green);
       font-weight: 700; vertical-align: middle;
@@ -287,8 +287,13 @@
           </div>
           <div class="form-group" style="justify-content:flex-end">
             <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
-              <input type="checkbox" id="with_bfusd" name="with_bfusd">
-              <span>启用 BFUSD 年化收益 <span class="bfusd-tag">BFUSD</span></span>
+              <select id="yield_asset" name="yield_asset" style="padding:0.2rem 0.4rem;border:1px solid #d0d5dd;border-radius:4px;font-size:0.85rem;">
+                <option value="none">不使用收益型资产</option>
+                <option value="bfusd">BFUSD</option>
+                <option value="rwusd">RWUSD</option>
+                <option value="ldusdt">LDUSDT</option>
+              </select>
+              <span>收益型保证金资产</span>
             </label>
           </div>
         </div>
@@ -369,7 +374,7 @@
         futures_fee: parseFloat(document.getElementById('futures_fee').value) || 0.0004,
         spot_fee: parseFloat(document.getElementById('spot_fee').value) || 0.0004,
         slippage: parseFloat(document.getElementById('slippage').value) || 0.0001,
-        with_bfusd: document.getElementById('with_bfusd').checked,
+        yield_asset: document.getElementById('yield_asset').value,
       };
 
       fetch(_bp + '/api/backtest/run', {
@@ -446,8 +451,8 @@
         html += '<dt>合约保证金</dt><dd>' + fmt(r.margin) + ' USDT</dd>';
         html += '<dt>合约仓位</dt><dd>' + fmt(r.initial_position) + ' USDT (' + r.leverage + 'x)</dd>';
         html += '<dt>资金费率收益</dt><dd class="' + (r.funding_profit >= 0 ? 'td-green' : 'td-red') + '">' + fmt(r.funding_profit) + ' USDT</dd>';
-        if (r.bfusd_profit !== 0) {
-          html += '<dt>BFUSD <span class="bfusd-tag">BFUSD</span></dt><dd class="' + (r.bfusd_profit >= 0 ? 'td-green' : 'td-red') + '">' + fmt(r.bfusd_profit) + ' USDT</dd>';
+        if (r.yield_profit !== 0) {
+          html += '<dt>' + r.yield_name + ' <span class="yield-tag">' + r.yield_name + '</span></dt><dd class="' + (r.yield_profit >= 0 ? 'td-green' : 'td-red') + '">' + fmt(r.yield_profit) + ' USDT</dd>';
         }
         html += '<dt>手续费</dt><dd class="td-red">' + fmt(r.fee_cost) + ' USDT</dd>';
         html += '<dt>滑点</dt><dd class="td-red">' + fmt(r.slippage_cost) + ' USDT</dd>';

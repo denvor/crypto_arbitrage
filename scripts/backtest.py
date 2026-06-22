@@ -20,7 +20,13 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPT_DIR.parent
 CONFIG_FILE = ROOT / "config.ini"
 DB_PATH = ROOT / "db" / "funding_rate.db"
-BFUSD_DB_PATH = ROOT / "db" / "bfusd.db"
+
+# 收益型保证金资产配置
+YIELD_ASSETS = {
+    "bfusd": {"name": "BFUSD", "db": ROOT / "db" / "bfusd.db", "table": "bfusd_rate"},
+    "rwusd": {"name": "RWUSD", "db": ROOT / "db" / "rwusd.db", "table": "rwusd_rate"},
+    "ldusdt": {"name": "LDUSDT", "db": ROOT / "db" / "ldusdt.db", "table": "ldusdt_rate"},
+}
 
 
 def load_config():
@@ -71,18 +77,22 @@ def load_log_data(pair_name, start_date, end_date):
     return records
 
 
-def load_bfusd_rates(start_date, end_date):
-    """从 BFUSD 数据库加载时间段内的每日年化利率
+def load_yield_rates(asset, start_date, end_date):
+    """从收益型资产数据库加载时间段内的每日年化利率
 
+    asset: bfusd / rwusd / ldusdt
     返回 dict: {date_str: apr}，date_str 格式为 YYYY-MM-DD
     """
-    BFUSD_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(BFUSD_DB_PATH))
-    start_ts = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp() * 1000)
-    end_ts = int(datetime.strptime(end_date, "%Y-%m-%d").timestamp() * 1000)
+    cfg = YIELD_ASSETS.get(asset)
+    if not cfg:
+        return {}
+    db_path = cfg["db"]
+    table = cfg["table"]
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
 
     rows = conn.execute(
-        "SELECT date, apr FROM bfusd_rate "
+        f"SELECT date, apr FROM {table} "
         "WHERE date >= ? AND date <= ? "
         "ORDER BY date",
         (start_date, end_date),
@@ -92,7 +102,7 @@ def load_bfusd_rates(start_date, end_date):
     return {row[0]: row[1] for row in rows}
 
 
-def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates=None):
+def run_backtest(records, capital, leverage, fees, yield_asset=None, yield_rates=None):
     """运行回测，返回统计结果和每笔明细
 
     资金分配模型 (套利: 合约仓位 = 现货价值):
@@ -121,8 +131,9 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
     margin = initial_position / leverage
 
     funding_profit = 0.0
-    bfusd_profit = 0.0
-    bfusd_calculated = set()  # 记录已计算 BFUSD 的日期，避免同一天重复计算
+    yield_profit = 0.0
+    yield_calculated = set()  # 记录已计算收益的日期，避免同一天重复计算
+    yield_name = YIELD_ASSETS.get(yield_asset, {}).get("name", "") if yield_asset else ""
     positive_count = 0
     negative_count = 0
     max_profit = 0
@@ -152,14 +163,14 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
         notional = num_contracts * price
         funding_pnl = rate * notional
 
-        # BFUSD 年化收益（每日按保证金计算，同一天只算一次）
-        if with_bfusd and bfusd_rates:
+        # 收益型资产年化收益（每日按保证金计算，同一天只算一次）
+        if yield_asset and yield_rates:
             date_str = funding_time[:10]
-            if date_str not in bfusd_calculated:
-                bfusd_calculated.add(date_str)
-                apr = bfusd_rates.get(date_str, 0)
+            if date_str not in yield_calculated:
+                yield_calculated.add(date_str)
+                apr = yield_rates.get(date_str, 0)
                 daily_rate = apr / 365
-                bfusd_profit += daily_rate * margin
+                yield_profit += daily_rate * margin
 
         funding_profit += funding_pnl
 
@@ -190,10 +201,10 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
             "cumulative": running,
         })
 
-    net_profit = funding_profit + bfusd_profit + total_fee_cost + total_slippage_cost
+    net_profit = funding_profit + yield_profit + total_fee_cost + total_slippage_cost
     net_pct = pct(net_profit, capital)
     funding_pct = pct(funding_profit, capital)
-    bfusd_pct = pct(bfusd_profit, capital)
+    yield_pct = pct(yield_profit, capital)
 
     # 计算持有天数用于年化
     if len(records) >= 2:
@@ -210,8 +221,9 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
         "leverage": leverage,
         "funding_profit": funding_profit,
         "funding_pct": funding_pct,
-        "bfusd_profit": bfusd_profit,
-        "bfusd_pct": bfusd_pct,
+        "yield_profit": yield_profit,
+        "yield_pct": yield_pct,
+        "yield_name": yield_name,
         "fee_cost": total_fee_cost,
         "fee_pct": pct(total_fee_cost, capital),
         "slippage_cost": total_slippage_cost,
@@ -230,7 +242,7 @@ def run_backtest(records, capital, leverage, fees, with_bfusd=False, bfusd_rates
     }
 
 
-def format_result(pair_key, pair_info, stats, with_bfusd=False):
+def format_result(pair_key, pair_info, stats, yield_asset=None):
     """格式化输出单个交易对的回测结果"""
     lines = []
     lines.append(f"交易对: {pair_info['name']}")
@@ -246,8 +258,8 @@ def format_result(pair_key, pair_info, stats, with_bfusd=False):
     lines.append("")
 
     lines.append(f"资金费率收益:   {stats['funding_profit']:+,.2f} USDT  ({stats['funding_pct']:+.2f}%)")
-    if with_bfusd and stats['bfusd_profit'] != 0:
-        lines.append(f"BFUSD 年化收益: {stats['bfusd_profit']:+,.2f} USDT  ({stats['bfusd_pct']:+.2f}%)")
+    if yield_asset and stats['yield_profit'] != 0:
+        lines.append(f"{stats['yield_name']} 年化收益: {stats['yield_profit']:+,.2f} USDT  ({stats['yield_pct']:+.2f}%)")
     lines.append(f"手续费:         {stats['fee_cost']:+,.2f} USDT  ({stats['fee_pct']:+.2f}%)")
     lines.append(f"滑点成本:       {stats['slippage_cost']:+,.2f} USDT  ({stats['slippage_pct']:+.2f}%)")
     lines.append(f"净收益:         {stats['net_profit']:+,.2f} USDT  ({stats['net_pct']:+.2f}%)")
@@ -343,8 +355,10 @@ def main():
         help="显示逐笔明细",
     )
     parser.add_argument(
-        "--with-bfusd", action="store_true",
-        help="启用 BFUSD 年化收益（需 bfusd.db 数据）",
+        "--yield-asset", "-y",
+        default="none",
+        choices=["none", "bfusd", "rwusd", "ldusdt"],
+        help="收益型保证金资产（none=不使用, bfusd/rwusd/ldusdt），默认 none",
     )
     args = parser.parse_args()
 
@@ -395,20 +409,26 @@ def main():
         print("错误: 数据库文件不存在，请先运行 import_to_db.py 或 fetch_funding_rate_db.py")
         sys.exit(1)
 
-    # 加载 BFUSD 数据（如果启用）
-    bfusd_rates = {}
-    if args.with_bfusd:
-        if BFUSD_DB_PATH.exists():
-            bfusd_rates = load_bfusd_rates(args.start, args.end)
-            print(f"BFUSD 数据: {len(bfusd_rates)} 天")
+    # 加载收益型资产数据（如果启用）
+    yield_asset = None if args.yield_asset == "none" else args.yield_asset
+    yield_rates = {}
+    if yield_asset:
+        cfg = YIELD_ASSETS.get(yield_asset)
+        if cfg and cfg["db"].exists():
+            yield_rates = load_yield_rates(yield_asset, args.start, args.end)
+            print(f"{cfg['name']} 数据: {len(yield_rates)} 天")
         else:
-            print("警告: bfusd.db 不存在，无法计算 BFUSD 收益")
-            print("请先运行 fetch_bfusd_rate.py 获取 BFUSD 利率数据")
+            print(f"警告: {yield_asset}.db 不存在，无法计算 {YIELD_ASSETS[yield_asset]['name']} 收益")
+            print(f"请先运行 fetch_{yield_asset}_rate.py 获取利率数据")
+            yield_asset = None
 
     # 运行回测
     all_results = {}
+    title = "资金费率套利回测结果"
+    if yield_asset:
+        title += f"（含 {YIELD_ASSETS[yield_asset]['name']}）"
     print("=" * 60)
-    print("资金费率套利回测结果" + ("（含 BFUSD）" if args.with_bfusd else ""))
+    print(title)
     print("=" * 60)
 
     for pair_key, pair_info in pairs.items():
@@ -433,7 +453,7 @@ def main():
 
         try:
             stats = run_backtest(records, args.capital, args.leverage, fees,
-                                 with_bfusd=args.with_bfusd, bfusd_rates=bfusd_rates)
+                                 yield_asset=yield_asset, yield_rates=yield_rates)
         except ValueError as e:
             print(f"\n交易对 {pair_name}: 数据错误 - {e}")
             continue
@@ -441,7 +461,7 @@ def main():
         all_results[pair_key] = stats
 
         print()
-        print(format_result(pair_key, pair_info, stats, with_bfusd=args.with_bfusd))
+        print(format_result(pair_key, pair_info, stats, yield_asset=yield_asset))
 
         if args.detail:
             print_detail(pair_key, pair_info, stats)

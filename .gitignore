@@ -7,6 +7,7 @@ old/
 .claude/
 CLAUDE.md
 PLAN.md
+PLAN_*.md
 RESEARCH_PAPER.md
 config.ini
 .codegraph/*

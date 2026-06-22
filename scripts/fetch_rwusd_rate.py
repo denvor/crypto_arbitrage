@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""从币安 API 获取 BFUSD 年化利率并写入 SQLite 数据库
+"""从币安 API 获取 RWUSD 年化利率并写入 SQLite 数据库
 
-币安 BFUSD rateHistory API:
-- GET /sapi/v1/bfusd/history/rateHistory
+币安 RWUSD rateHistory API:
+- GET /sapi/v1/rwusd/history/rateHistory
+- 独立接口，无需 productId
 - 需要 timestamp + signature 认证（HMAC-SHA256）
 - 按时间降序排列
-- 默认返回 10 条，total 显示总记录数
 - 每次请求 IP 权重 150
 
 获取策略：用 endTime 逐批获取，每次用最后一条的 time-1 作为下一批的 endTime
@@ -28,7 +28,7 @@ import configparser
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils import get_proxies, ROOT, CONFIG_PATH
 
-DB_PATH = ROOT / "db" / "bfusd.db"
+DB_PATH = ROOT / "db" / "rwusd.db"
 proxies = None
 session = None
 
@@ -55,13 +55,13 @@ def make_signed_url(base_url, params, secret):
 def create_table(conn):
     """创建数据库表"""
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS bfusd_rate (
+        CREATE TABLE IF NOT EXISTS rwusd_rate (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT NOT NULL UNIQUE,
             apr REAL NOT NULL
         )
     """)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_date ON bfusd_rate(date)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_date ON rwusd_rate(date)")
     conn.commit()
 
 
@@ -101,22 +101,23 @@ def safe_signed_get(url, headers):
 def fetch_all_data(conn, api_key, api_secret, latest_date, launch_ts=0):
     """用 endTime 逐批获取增量数据
 
-    策略：
+    策略同 fetch_bfusd_rate.py:
     - 从当前时间开始，每次获取 10 条
     - 用最后一条的 time-1 作为下一批的 endTime
     - 如果获取到的日期在数据库中已存在，说明已覆盖到数据库最新记录，停止
     - launch_ts: 上线日期时间戳（ms），endTime 低于此值时停止
     - 直到返回空数据
     """
-    api_base = "https://api.binance.com/sapi/v1/bfusd/history/rateHistory"
+    api_base = "https://api.binance.com/sapi/v1/rwusd/history/rateHistory"
     total_inserted = 0
     batch_num = 0
     last_end_time = int(datetime.now().timestamp() * 1000)
+    launch_date_str = datetime.fromtimestamp(launch_ts / 1000).strftime("%Y-%m-%d") if launch_ts > 0 else ""
 
     while True:
         # 检查 endTime 是否已低于上线日期
         if launch_ts > 0 and last_end_time < launch_ts:
-            print(f"  [{time.strftime('%H:%M:%S')}] endTime 已低于上线日期，获取完成")
+            print(f"  [{time.strftime('%H:%M:%S')}] endTime 已低于上线日期 {launch_date_str}，获取完成")
             sys.stdout.flush()
             break
 
@@ -161,7 +162,7 @@ def fetch_all_data(conn, api_key, api_secret, latest_date, launch_ts=0):
             apr = float(row["annualPercentageRate"])
             try:
                 conn.execute(
-                    "INSERT INTO bfusd_rate (date, apr) VALUES (?, ?)", (date_str, apr)
+                    "INSERT INTO rwusd_rate (date, apr) VALUES (?, ?)", (date_str, apr)
                 )
                 inserted += 1
             except sqlite3.IntegrityError:
@@ -204,15 +205,15 @@ def main():
     conn = sqlite3.connect(str(DB_PATH))
     create_table(conn)
 
-    # 读取 BFUSD 上线日期作为硬限制
-    bfusd_start = config.get("bfusd", "start_date", fallback="")
+    # 读取 RWUSD 上线日期作为硬限制
+    rwusd_start = config.get("rwusd", "start_date", fallback="")
     launch_ts = 0
-    if bfusd_start:
-        launch_ts = int(datetime.strptime(bfusd_start, "%Y-%m-%d").timestamp() * 1000)
-        print(f"BFUSD 上线日期: {bfusd_start}，endTime 不低于此值")
+    if rwusd_start:
+        launch_ts = int(datetime.strptime(rwusd_start, "%Y-%m-%d").timestamp() * 1000)
+        print(f"RWUSD 上线日期: {rwusd_start}，endTime 不低于此值")
 
     # 获取数据库最新日期
-    row = conn.execute("SELECT MAX(date) FROM bfusd_rate").fetchone()
+    row = conn.execute("SELECT MAX(date) FROM rwusd_rate").fetchone()
     latest_date = row[0] if row[0] else None
 
     if latest_date:
@@ -225,9 +226,9 @@ def main():
     print(f"\n完成，共新增 {total_inserted} 条 -> {DB_PATH}")
 
     # 显示数据库状态
-    total = conn.execute("SELECT COUNT(*) FROM bfusd_rate").fetchone()[0]
-    earliest = conn.execute("SELECT MIN(date) FROM bfusd_rate").fetchone()[0]
-    latest = conn.execute("SELECT MAX(date) FROM bfusd_rate").fetchone()[0]
+    total = conn.execute("SELECT COUNT(*) FROM rwusd_rate").fetchone()[0]
+    earliest = conn.execute("SELECT MIN(date) FROM rwusd_rate").fetchone()[0]
+    latest = conn.execute("SELECT MAX(date) FROM rwusd_rate").fetchone()[0]
     print(f"数据库: {total} 条记录 ({earliest} ~ {latest})")
     conn.close()
 

@@ -22,14 +22,14 @@ from flask import Flask, jsonify, render_template, request, url_for
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 from utils import (
-    BFUSD_DB, FUNDING_DB,
+    BFUSD_DB, RWUSD_DB, LDUSDT_DB, FUNDING_DB,
     create_job, get_job, update_job,
     get_proxies, load_config, get_pairs,
-    get_pair_stats, get_bfusd_stats,
+    get_pair_stats, get_yield_stats, YIELD_DBS,
 )
 
 # 导入回测核心函数
-from backtest import run_backtest, load_log_data, load_bfusd_rates
+from backtest import run_backtest, load_log_data, load_yield_rates, YIELD_ASSETS
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(PROJECT_DIR, "static"), static_url_path="/static")
@@ -330,17 +330,46 @@ def maintenance():
     # BFUSD 条目
     BFUSD_DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(BFUSD_DB))
-    bfusd = get_bfusd_stats(conn)
+    bfusd = get_yield_stats(conn, "bfusd")
     conn.close()
-
     entries.append({
         "key": "bfusd",
         "source": "BFUSD 利率",
-        "type": "bfusd",
+        "type": "yield",
         "pair": "BFUSD",
         "min_date": bfusd["min_date"],
         "max_date": bfusd["max_date"],
         "count": bfusd["count"],
+    })
+
+    # RWUSD 条目
+    RWUSD_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(RWUSD_DB))
+    rwusd = get_yield_stats(conn, "rwusd")
+    conn.close()
+    entries.append({
+        "key": "rwusd",
+        "source": "RWUSD 利率",
+        "type": "yield",
+        "pair": "RWUSD",
+        "min_date": rwusd["min_date"],
+        "max_date": rwusd["max_date"],
+        "count": rwusd["count"],
+    })
+
+    # LDUSDT 条目
+    LDUSDT_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(LDUSDT_DB))
+    ldusdt = get_yield_stats(conn, "ldusdt")
+    conn.close()
+    entries.append({
+        "key": "ldusdt",
+        "source": "LDUSDT 利率",
+        "type": "yield",
+        "pair": "LDUSDT",
+        "min_date": ldusdt["min_date"],
+        "max_date": ldusdt["max_date"],
+        "count": ldusdt["count"],
     })
 
     return render_template("maintenance.html", entries=entries)
@@ -353,7 +382,7 @@ def api_fetch_start():
     job_type = data.get("type")
     pair = data.get("pair")
 
-    if job_type not in ("funding_rate", "bfusd"):
+    if job_type not in ("funding_rate", "bfusd", "rwusd", "ldusdt"):
         return jsonify({"error": f"未知类型: {job_type}"}), 400
 
     job = create_job(job_type, pair)
@@ -425,7 +454,7 @@ def api_backtest_run():
     if leverage <= 0:
         return jsonify({"error": "杠杆倍数必须为正数"}), 400
 
-    with_bfusd = data.get("with_bfusd", False)
+    yield_asset = data.get("yield_asset", "none")
 
     if not start_date or not end_date:
         return jsonify({"error": "请指定回测日期范围"}), 400
@@ -451,11 +480,12 @@ def api_backtest_run():
     if not pairs:
         return jsonify({"error": "没有有效的交易对"}), 400
 
-    # 加载 BFUSD 数据
-    bfusd_rates = {}
-    if with_bfusd:
+    # 加载收益型资产数据
+    yield_rates = {}
+    effective_yield = None if yield_asset == "none" else yield_asset
+    if effective_yield:
         try:
-            bfusd_rates = load_bfusd_rates(start_date, end_date)
+            yield_rates = load_yield_rates(effective_yield, start_date, end_date)
         except Exception:
             pass
 
@@ -474,7 +504,7 @@ def api_backtest_run():
 
         try:
             stats = run_backtest(records, capital, leverage, fees,
-                                 with_bfusd=with_bfusd, bfusd_rates=bfusd_rates)
+                                 yield_asset=effective_yield, yield_rates=yield_rates)
         except ValueError as e:
             return jsonify({"error": f"回测数据错误 ({pair_name}): {e}"}), 400
         stats["_name"] = pair_name

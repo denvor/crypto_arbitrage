@@ -96,6 +96,8 @@
     .pair-dot.btc { background: #f7931a; }
     .pair-dot.eth { background: #627eea; }
     .pair-dot.bfusd { background: #22c55e; }
+    .pair-dot.rwusd { background: #8b5cf6; }
+    .pair-dot.ldusdt { background: #f59e0b; }
 
     .date-cell { color: var(--text-muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
     .count-cell {
@@ -204,7 +206,7 @@
             </td>
             <td>
               <span class="pair-badge">
-                <span class="pair-dot {{ 'bfusd' if entry.type == 'bfusd' else 'btc' if 'btc' in entry.pair else 'eth' }}"></span>
+                <span class="pair-dot {{ entry.key }}"></span>
                 {{ entry.pair }}
               </span>
             </td>

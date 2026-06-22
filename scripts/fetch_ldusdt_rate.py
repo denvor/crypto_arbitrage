@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""从币安 API 获取 BFUSD 年化利率并写入 SQLite 数据库
+"""从币安 API 获取 LDUSDT 年化利率并写入 SQLite 数据库
 
-币安 BFUSD rateHistory API:
-- GET /sapi/v1/bfusd/history/rateHistory
-- 需要 timestamp + signature 认证（HMAC-SHA256）
-- 按时间降序排列
-- 默认返回 10 条，total 显示总记录数
-- 每次请求 IP 权重 150
+币安 LDUSDT 的 APR 挂钩 Simple Earn USDT 活期产品利率:
 
-获取策略：用 endTime 逐批获取，每次用最后一条的 time-1 作为下一批的 endTime
+Step 1: 通过 GET /sapi/v1/simple-earn/flexible/list 查询 USDT 活期产品 productId
+Step 2: 用 productId 调用 GET /sapi/v1/simple-earn/flexible/history/rateHistory 获取历史利率
+
+需要 timestamp + signature 认证（HMAC-SHA256）
+每次请求 IP 权重 150
 """
 
 import hashlib
@@ -28,9 +27,10 @@ import configparser
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils import get_proxies, ROOT, CONFIG_PATH
 
-DB_PATH = ROOT / "db" / "bfusd.db"
+DB_PATH = ROOT / "db" / "ldusdt.db"
 proxies = None
 session = None
+API_BASE = "https://api.binance.com"
 
 
 def get_session():
@@ -55,13 +55,13 @@ def make_signed_url(base_url, params, secret):
 def create_table(conn):
     """创建数据库表"""
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS bfusd_rate (
+        CREATE TABLE IF NOT EXISTS ldusdt_rate (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT NOT NULL UNIQUE,
             apr REAL NOT NULL
         )
     """)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_date ON bfusd_rate(date)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_date ON ldusdt_rate(date)")
     conn.commit()
 
 
@@ -98,25 +98,61 @@ def safe_signed_get(url, headers):
     return None
 
 
-def fetch_all_data(conn, api_key, api_secret, latest_date, launch_ts=0):
-    """用 endTime 逐批获取增量数据
+def discover_product_id(api_key, api_secret):
+    """查询 Simple Earn 活期产品列表，找到 USDT 的 productId
 
-    策略：
-    - 从当前时间开始，每次获取 10 条
-    - 用最后一条的 time-1 作为下一批的 endTime
-    - 如果获取到的日期在数据库中已存在，说明已覆盖到数据库最新记录，停止
-    - launch_ts: 上线日期时间戳（ms），endTime 低于此值时停止
-    - 直到返回空数据
+    GET /sapi/v1/simple-earn/flexible/list
+    返回 productId (str) 或 None
     """
-    api_base = "https://api.binance.com/sapi/v1/bfusd/history/rateHistory"
+    print("  查询 Simple Earn USDT 活期产品 productId...")
+    sys.stdout.flush()
+
+    timestamp = str(int(time.time() * 1000))
+    params = {
+        "timestamp": timestamp,
+        "size": "100",
+    }
+
+    url = make_signed_url(f"{API_BASE}/sapi/v1/simple-earn/flexible/list", params, api_secret)
+    headers = {"X-MBX-APIKEY": api_key}
+
+    data = safe_signed_get(url, headers)
+    if data is None:
+        print("  ⚠ 获取活期产品列表失败")
+        return None
+
+    rows = data.get("rows", [])
+    for row in rows:
+        if row.get("asset") == "USDT":
+            pid = row.get("productId")
+            apr = row.get("annualPercentageRate", "N/A")
+            print(f"  找到 USDT 活期产品: productId={pid}, currentAPR={apr}")
+            sys.stdout.flush()
+            return pid
+
+    print("  ⚠ 未找到 USDT 活期产品")
+    return None
+
+
+def fetch_all_data(conn, api_key, api_secret, product_id, latest_date, launch_ts=0):
+    """用 productId 和 endTime 逐批获取利率历史
+
+    策略同 fetch_bfusd_rate.py:
+    - 从当前时间开始，每次获取 100 条
+    - 用最后一条的 time-1 作为下一批的 endTime
+    - 遇到数据库中已有的日期时停止
+    - launch_ts: 上线日期时间戳（ms），endTime 低于此值时停止
+    """
+    api_base = f"{API_BASE}/sapi/v1/simple-earn/flexible/history/rateHistory"
     total_inserted = 0
     batch_num = 0
     last_end_time = int(datetime.now().timestamp() * 1000)
+    launch_date_str = datetime.fromtimestamp(launch_ts / 1000).strftime("%Y-%m-%d") if launch_ts > 0 else ""
 
     while True:
         # 检查 endTime 是否已低于上线日期
         if launch_ts > 0 and last_end_time < launch_ts:
-            print(f"  [{time.strftime('%H:%M:%S')}] endTime 已低于上线日期，获取完成")
+            print(f"  [{time.strftime('%H:%M:%S')}] endTime 已低于上线日期 {launch_date_str}，获取完成")
             sys.stdout.flush()
             break
 
@@ -127,8 +163,10 @@ def fetch_all_data(conn, api_key, api_secret, latest_date, launch_ts=0):
 
         timestamp = str(int(time.time() * 1000))
         params = {
+            "productId": product_id,
             "timestamp": timestamp,
             "endTime": str(last_end_time),
+            "size": "100",
         }
 
         url = make_signed_url(api_base, params, api_secret)
@@ -161,7 +199,7 @@ def fetch_all_data(conn, api_key, api_secret, latest_date, launch_ts=0):
             apr = float(row["annualPercentageRate"])
             try:
                 conn.execute(
-                    "INSERT INTO bfusd_rate (date, apr) VALUES (?, ?)", (date_str, apr)
+                    "INSERT INTO ldusdt_rate (date, apr) VALUES (?, ?)", (date_str, apr)
                 )
                 inserted += 1
             except sqlite3.IntegrityError:
@@ -204,15 +242,27 @@ def main():
     conn = sqlite3.connect(str(DB_PATH))
     create_table(conn)
 
-    # 读取 BFUSD 上线日期作为硬限制
-    bfusd_start = config.get("bfusd", "start_date", fallback="")
+    # Step 1: 发现 productId
+    print("Step 1: 查询 LDUSDT (Simple Earn USDT) 产品信息")
+    product_id = discover_product_id(api_key, api_secret)
+    if not product_id:
+        print("错误: 无法获取 LDUSDT 的 productId")
+        print("提示: 请确认 API Key 有 Simple Earn 权限")
+        conn.close()
+        sys.exit(1)
+
+    # Step 2: 获取历史利率
+    print(f"\nStep 2: 使用 productId={product_id} 获取利率历史")
+
+    # 读取 LDUSDT 上线日期作为硬限制
+    ldusdt_start = config.get("ldusdt", "start_date", fallback="")
     launch_ts = 0
-    if bfusd_start:
-        launch_ts = int(datetime.strptime(bfusd_start, "%Y-%m-%d").timestamp() * 1000)
-        print(f"BFUSD 上线日期: {bfusd_start}，endTime 不低于此值")
+    if ldusdt_start:
+        launch_ts = int(datetime.strptime(ldusdt_start, "%Y-%m-%d").timestamp() * 1000)
+        print(f"LDUSDT 上线日期: {ldusdt_start}，endTime 不低于此值")
 
     # 获取数据库最新日期
-    row = conn.execute("SELECT MAX(date) FROM bfusd_rate").fetchone()
+    row = conn.execute("SELECT MAX(date) FROM ldusdt_rate").fetchone()
     latest_date = row[0] if row[0] else None
 
     if latest_date:
@@ -221,13 +271,13 @@ def main():
     else:
         print("数据库为空，开始全量获取")
 
-    total_inserted = fetch_all_data(conn, api_key, api_secret, latest_date, launch_ts=launch_ts)
+    total_inserted = fetch_all_data(conn, api_key, api_secret, product_id, latest_date, launch_ts=launch_ts)
     print(f"\n完成，共新增 {total_inserted} 条 -> {DB_PATH}")
 
     # 显示数据库状态
-    total = conn.execute("SELECT COUNT(*) FROM bfusd_rate").fetchone()[0]
-    earliest = conn.execute("SELECT MIN(date) FROM bfusd_rate").fetchone()[0]
-    latest = conn.execute("SELECT MAX(date) FROM bfusd_rate").fetchone()[0]
+    total = conn.execute("SELECT COUNT(*) FROM ldusdt_rate").fetchone()[0]
+    earliest = conn.execute("SELECT MIN(date) FROM ldusdt_rate").fetchone()[0]
+    latest = conn.execute("SELECT MAX(date) FROM ldusdt_rate").fetchone()[0]
     print(f"数据库: {total} 条记录 ({earliest} ~ {latest})")
     conn.close()
 

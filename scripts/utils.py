@@ -17,6 +17,15 @@ ROOT = SCRIPT_DIR.parent
 CONFIG_PATH = ROOT / "config.ini"
 FUNDING_DB = ROOT / "db" / "funding_rate.db"
 BFUSD_DB = ROOT / "db" / "bfusd.db"
+RWUSD_DB = ROOT / "db" / "rwusd.db"
+LDUSDT_DB = ROOT / "db" / "ldusdt.db"
+
+# 收益型资产配置
+YIELD_DBS = {
+    "bfusd":  {"path": BFUSD_DB,  "table": "bfusd_rate"},
+    "rwusd":  {"path": RWUSD_DB,  "table": "rwusd_rate"},
+    "ldusdt": {"path": LDUSDT_DB, "table": "ldusdt_rate"},
+}
 
 
 def get_proxies():
@@ -73,13 +82,22 @@ def get_pair_stats(conn):
 
 
 def get_bfusd_stats(conn):
-    """获取 bfusd_rate 数据库的数据范围统计
-    Returns dict: {"min_date": "2024-11-20", "max_date": "2026-05-02", "count": 529}
+    """获取 bfusd_rate 数据库的数据范围统计（兼容旧接口）"""
+    return get_yield_stats(conn, "bfusd")
+
+
+def get_yield_stats(conn, asset):
+    """获取收益型资产数据库的数据范围统计
+    asset: bfusd / rwusd / ldusdt
+    Returns dict: {"min_date": ..., "max_date": ..., "count": ...}
     数据库为空或无表时返回全零 dict。
     """
+    cfg = YIELD_DBS.get(asset)
+    if not cfg:
+        return {"min_date": None, "max_date": None, "count": 0}
     try:
         row = conn.execute(
-            "SELECT MIN(date), MAX(date), COUNT(*) FROM bfusd_rate"
+            f"SELECT MIN(date), MAX(date), COUNT(*) FROM {cfg['table']}"
         ).fetchone()
         return {
             "min_date": row[0], "max_date": row[1], "count": row[2]
