@@ -44,9 +44,9 @@ def load_config():
         tbl = name.lower()
         pairs[tbl] = {"name": name, "tbl": tbl, "time": time}
     fees = {
-        "futures_fee": safe_float(config.get("backtest", "futures_fee", fallback="0.0004"), 0.0004),
-        "spot_fee": safe_float(config.get("backtest", "spot_fee", fallback="0.0004"), 0.0004),
-        "slippage": safe_float(config.get("backtest", "slippage", fallback="0.0001"), 0.0001),
+        "futures_fee": safe_float(config.get("backtest", "futures_fee", fallback="0.0002"), 0.0002),
+        "spot_fee": safe_float(config.get("backtest", "spot_fee", fallback="0.001"), 0.001),
+        "slippage": safe_float(config.get("backtest", "slippage", fallback="0"), 0),
     }
     return pairs, fees
 
@@ -340,15 +340,15 @@ def main():
     )
     parser.add_argument(
         "--futures-fee", type=float, default=None,
-        help="合约手续费率（默认 0.0004）",
+        help="合约手续费率（默认 0.0002）",
     )
     parser.add_argument(
         "--spot-fee", type=float, default=None,
-        help="现货手续费率（默认 0.0004）",
+        help="现货手续费率（默认 0.001）",
     )
     parser.add_argument(
         "--slippage", type=float, default=None,
-        help="滑点率（默认 0.0001）",
+        help="滑点率（默认 0）",
     )
     parser.add_argument(
         "--detail", "-d", action="store_true",

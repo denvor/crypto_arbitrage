@@ -443,9 +443,9 @@ def api_backtest_run():
     try:
         capital = float(data.get("capital", 10000))
         leverage = float(data.get("leverage", 1))
-        futures_fee = float(data.get("futures_fee", 0.0004))
-        spot_fee = float(data.get("spot_fee", 0.0004))
-        slippage = float(data.get("slippage", 0.0001))
+        futures_fee = float(data.get("futures_fee", 0.0002))
+        spot_fee = float(data.get("spot_fee", 0.001))
+        slippage = float(data.get("slippage", 0))
     except (ValueError, TypeError):
         return jsonify({"error": "资金、杠杆、费率参数必须为数值"}), 400
 
