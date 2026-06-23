@@ -2,7 +2,7 @@ venv/*
 uwsgi/*
 **/__pycache__/
 logs/*
-db/
+db/*.db
 old/
 .claude/
 CLAUDE.md
