@@ -7,7 +7,6 @@
 
 import csv
 import sqlite3
-import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -30,24 +29,26 @@ def export_funding_rate():
         return False
 
     conn = sqlite3.connect(str(FUNDING_DB))
-    pairs = conn.execute("SELECT DISTINCT pair FROM funding_rate ORDER BY pair").fetchall()
+    try:
+        pairs = conn.execute("SELECT DISTINCT pair FROM funding_rate ORDER BY pair").fetchall()
 
-    for (pair,) in pairs:
-        rows = conn.execute(
-            "SELECT pair, time, timestamp, funding_rate, price "
-            "FROM funding_rate WHERE pair = ? ORDER BY timestamp",
-            (pair,),
-        ).fetchall()
+        for (pair,) in pairs:
+            rows = conn.execute(
+                "SELECT pair, time, timestamp, funding_rate, price "
+                "FROM funding_rate WHERE pair = ? ORDER BY timestamp",
+                (pair,),
+            ).fetchall()
 
-        filename = DB_DIR / f"funding_rate_{pair}.csv"
-        with open(filename, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["pair", "time", "timestamp", "funding_rate", "price"])
-            writer.writerows(rows)
+            filename = DB_DIR / f"funding_rate_{pair}.csv"
+            with open(filename, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(["pair", "time", "timestamp", "funding_rate", "price"])
+                writer.writerows(rows)
 
-        print(f"  ✓ {pair}: {len(rows)} 条 → {filename.name}")
+            print(f"  ✓ {pair}: {len(rows)} 条 → {filename.name}")
 
-    conn.close()
+    finally:
+        conn.close()
     return True
 
 
@@ -59,10 +60,12 @@ def export_yield_rates():
             continue
 
         conn = sqlite3.connect(str(cfg["db"]))
-        rows = conn.execute(
-            f"SELECT date, apr FROM {cfg['table']} ORDER BY date"
-        ).fetchall()
-        conn.close()
+        try:
+            rows = conn.execute(
+                f"SELECT date, apr FROM {cfg['table']} ORDER BY date"
+            ).fetchall()
+        finally:
+            conn.close()
 
         filename = DB_DIR / f"{cfg['name']}_rate.csv"
         with open(filename, "w", newline="", encoding="utf-8") as f:

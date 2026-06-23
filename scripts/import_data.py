@@ -8,7 +8,6 @@
 import argparse
 import csv
 import sqlite3
-import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -22,9 +21,6 @@ YIELD_DBS = {
     "rwusd":  {"name": "rwusd",  "db": DB_DIR / "rwusd.db",  "table": "rwusd_rate"},
     "ldusdt": {"name": "ldusdt", "db": DB_DIR / "ldusdt.db", "table": "ldusdt_rate"},
 }
-
-# 已知的交易对
-KNOWN_PAIRS = ["BTCUSDT", "BTCUSDC", "ETHUSDT", "ETHUSDC"]
 
 
 def ensure_table(conn, db_type):
@@ -83,7 +79,7 @@ def import_funding_rate(pair=None):
         # 从文件名提取交易对
         pair_name = csv_path.stem.replace("funding_rate_", "")
 
-        # 加载已存在的 timestamp，跳过重复
+        # 加载已存在的 timestamp 到 set，用于去重
         existing = set(
             r[0] for r in conn.execute(
                 "SELECT timestamp FROM funding_rate WHERE pair = ?", (pair_name,)
@@ -91,18 +87,23 @@ def import_funding_rate(pair=None):
         )
 
         imported = 0
-        with open(csv_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                ts = int(row["timestamp"])
-                if ts in existing:
-                    continue
-                conn.execute(
-                    "INSERT INTO funding_rate (pair, time, timestamp, funding_rate, price) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (row["pair"], row["time"], ts, row["funding_rate"], row["price"]),
-                )
-                imported += 1
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    ts = int(row["timestamp"])
+                    if ts in existing:
+                        continue
+                    conn.execute(
+                        "INSERT INTO funding_rate (pair, time, timestamp, funding_rate, price) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (row["pair"], row["time"], ts, row["funding_rate"], row["price"]),
+                    )
+                    imported += 1
+        except (KeyError, ValueError) as e:
+            print(f"  ✗ {pair_name}: CSV 格式错误 ({e})，跳过此文件")
+            conn.rollback()
+            continue
 
         conn.commit()
         total_imported += imported
@@ -140,17 +141,22 @@ def import_yield_rates(asset=None):
         )
 
         imported = 0
-        with open(csv_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                dt = row["date"]
-                if dt in existing:
-                    continue
-                conn.execute(
-                    f"INSERT INTO {cfg['table']} (date, apr) VALUES (?, ?)",
-                    (dt, float(row["apr"])),
-                )
-                imported += 1
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    dt = row["date"]
+                    if dt in existing:
+                        continue
+                    conn.execute(
+                        f"INSERT INTO {cfg['table']} (date, apr) VALUES (?, ?)",
+                        (dt, float(row["apr"])),
+                    )
+                    imported += 1
+        except (KeyError, ValueError) as e:
+            print(f"  ✗ {cfg['name']}: CSV 格式错误 ({e})，跳过此文件")
+            conn.rollback()
+            continue
 
         conn.commit()
         conn.close()
@@ -191,13 +197,14 @@ def main():
             print(f"  {f.name} ({size:,} bytes)")
         return
 
-    # 导入资金费率
+    # 导入资金费率（根据 CSV 文件是否存在自动判断，无需硬编码列表）
     print("导入资金费率数据 ...")
     if args.pair:
         for p in args.pair:
             p_upper = p.upper()
-            if p_upper not in KNOWN_PAIRS:
-                print(f"  警告: 未知交易对 {p_upper}，跳过")
+            csv_path = DB_DIR / f"funding_rate_{p_upper}.csv"
+            if not csv_path.exists():
+                print(f"  警告: 找不到 {csv_path.name}，跳过 {p_upper}")
                 continue
             import_funding_rate(p_upper)
     else:

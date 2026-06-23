@@ -69,9 +69,9 @@ python scripts/backtest.py --pair btcusdt --start 2024-01-01 --end 2024-12-31
 
 ```ini
 [backtest]
-futures_fee = 0.0004    # 合约手续费率 (0.04%)
-spot_fee = 0.0004       # 现货手续费率 (0.04%)
-slippage = 0.0001       # 滑点率 (0.01%)
+futures_fee = 0.0002    # 合约手续费率 (0.02%)
+spot_fee = 0.001        # 现货手续费率 (0.10%)
+slippage = 0            # 滑点率 (0%)
 ```
 
 ## 命令行参数
