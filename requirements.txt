@@ -1,2 +1,8 @@
 requests>=2.31.0
 flask>=3.0.0
+
+# PDF 报告（scripts/build_pdf.py）：
+# weasyprint 需要系统库，Ubuntu: sudo apt install libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info
+mistune>=3.0.0
+latex2mathml>=3.0.0
+weasyprint>=62.0
