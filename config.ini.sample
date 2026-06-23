@@ -14,7 +14,13 @@ ETHUSDC = 2024-01-03
 [bfusd]
 start_date = 2024-11-20
 
+[rwusd]
+start_date = 2025-07-28
+
+[ldusdt]
+start_date = 2025-04-09
+
 [backtest]
-futures_fee = 0.0004
-spot_fee = 0.0004
-slippage = 0.0001
+futures_fee = 0.0002
+spot_fee = 0.001
+slippage = 0
