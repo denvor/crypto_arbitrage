@@ -15,6 +15,9 @@ pip install -r requirements.txt
 # 初始化数据库
 python scripts/initdb.py
 
+# 从 CSV 导入历史数据（快速建立数据库）
+python scripts/import_data.py
+
 # 启动 Flask
 python app.py
 
@@ -26,6 +29,16 @@ python app.py
 ### 命令行
 
 ```bash
+# 查看可导入的 CSV 文件
+python scripts/import_data.py --list
+
+# 导入全部数据到数据库
+python scripts/import_data.py
+
+# 只导入指定交易对
+python scripts/import_data.py --pair BTCUSDT ETHUSDT
+
+# 执行回测
 python scripts/backtest.py --pair btcusdt --start 2024-01-01 --end 2024-12-31
 ```
 
@@ -137,6 +150,8 @@ python scripts/backtest.py --pair btcusdt --start 2024-06-01 --end 2024-06-07 --
 
 数据通过 `scripts/fetch_funding_rate_db.py` 获取（代理自动从 `config.ini` 的 `[proxy]` 段读取），存储在 `db/funding_rate.db` 中。
 
+CSV 导出文件位于 `db/` 目录（`funding_rate_*.csv`、`*_rate.csv`），可用 `scripts/import_data.py` 快速导入，也可用 `scripts/export_data.py` 从数据库导出。
+
 每个交易对在 `config.ini` 中有 `time` 字段，表示该交易对上线日期。回测时会自动检查，早于上线日期的数据会被跳过。
 
 ## 文件结构
@@ -152,13 +167,17 @@ crypto_arbitrage/
     initdb.py             # 首次使用前初始化数据库
     utils.py              # 共享工具（代理、配置、DB 统计、任务管理）
     backtest.py           # 回测程序
+    export_data.py        # 导出数据库到 CSV
+    import_data.py        # 从 CSV 导入数据库
     fetch_funding_rate_db.py  # 数据获取程序（资金费率）
     fetch_bfusd_rate.py   # BFUSD 利率获取
   templates/              # WebUI 页面模板
     maintenance.html      # 数据维护页面
     backtest.html         # 回测页面
-  db/                     # SQLite 数据库
+  db/                     # SQLite 数据库和 CSV 导出
     funding_rate.db
     bfusd.db
+    funding_rate_*.csv    # 资金费率导出文件
+    *_rate.csv            # 收益型资产利率导出文件
   old/                    # 已废弃的旧版脚本
 ```
