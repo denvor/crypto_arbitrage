@@ -9,6 +9,7 @@ CLAUDE.md
 PLAN.md
 PLAN_*.md
 RESEARCH_PAPER.md
+RESEARCH_PAPER.html
 config.ini
 .codegraph/*
 uwsgi.ini.sample
